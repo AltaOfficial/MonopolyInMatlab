@@ -31,6 +31,7 @@
 	</properties>
 	<dependencies>
 		<dependency>
+            <!-- this will allow us to use rest endpoints -->
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
@@ -38,8 +39,23 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-websocket</artifactId>
 		</dependency>
-
+        <!--
+            jjwt-jackson & jjwt-impl are used for when we get a JSON message through the rest(not websocket) endpoints
+            they are automatically parsed, so we don't have to do anything
+        -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.7</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.7</version>
+        </dependency>
 		<dependency>
+            <!-- lombok is so we don't have to use much boilerplate code -->
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<optional>true</optional>

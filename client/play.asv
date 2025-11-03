@@ -3,11 +3,10 @@ import SimpleClient.*; % the websocket client class
 
 function main()
     % adding matlab-websocket jar to dynamic java class path
+    clear all
     javaaddpath("matlab-websocket-1.6.jar", "-end");
     
-    client = SimpleClient("wss://echo.websocket.org");
-
-    client.
+    % client = SimpleClient("ws://echo.websocket.org");
 
     % open la main menu
     app = main_menu();
