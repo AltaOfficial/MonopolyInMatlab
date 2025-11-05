@@ -9,7 +9,7 @@ function main()
     client = SimpleClient("wss://echo.websocket.org");
 
     % open la main menu
-    app = main_menu();clc
+    % app = main_menu();
 
 end
 

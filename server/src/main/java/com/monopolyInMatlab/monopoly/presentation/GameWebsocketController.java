@@ -12,7 +12,7 @@ import org.springframework.stereotype.Controller;
 public class GameWebsocketController {
     private final SimpMessagingTemplate simpMessagingTemplate;
 
-    @MessageMapping("/room/{roomId}")
+    @MessageMapping("/room/{roomId}/join")
     public void test(@DestinationVariable String roomId, Player player) {
 
     }
