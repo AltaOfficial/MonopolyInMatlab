@@ -1,10 +1,12 @@
 package com.monopolyInMatlab.monopoly.persistence.inMemory;
 
+import com.monopolyInMatlab.monopoly.domain.CreateRoomRequest;
 import com.monopolyInMatlab.monopoly.domain.Room;
 import com.monopolyInMatlab.monopoly.persistence.RoomRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -15,5 +17,11 @@ public class InMemoryRoomRepository implements RoomRepository {
     @Override
     public List<Room> getAllRooms() {
         return List.copyOf(rooms.values());
+    }
+
+    @Override
+    public Room createRoom(CreateRoomRequest createRoomRequest) {
+        Room newRoom = Room.builder().roomName(createRoomRequest.getRoomName()).build();
+        return rooms.putIfAbsent(createRoomRequest.getRoomName(), newRoom);
     }
 }

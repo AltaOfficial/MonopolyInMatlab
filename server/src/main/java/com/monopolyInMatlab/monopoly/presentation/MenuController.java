@@ -1,5 +1,6 @@
 package com.monopolyInMatlab.monopoly.presentation;
 
+import com.monopolyInMatlab.monopoly.domain.CreateRoomRequest;
 import com.monopolyInMatlab.monopoly.domain.Room;
 import com.monopolyInMatlab.monopoly.service.RoomsService;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ public class MenuController {
     }
 
     @PostMapping("/createroom")
-    public Room createRoom(@Re) {
-
+    public Room createRoom(@RequestBody CreateRoomRequest createRoomRequest) {
+        return roomsService.createRoom(createRoomRequest);
     }
 }

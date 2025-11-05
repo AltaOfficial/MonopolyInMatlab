@@ -5,12 +5,12 @@ function main()
     % adding matlab-websocket jar to dynamic java class path
     javaaddpath("matlab-websocket-1.6.jar", "-end");
     
+    % this errors out, must fix in the future
     client = SimpleClient("wss://echo.websocket.org");
 
-    client.
-
     % open la main menu
-    app = main_menu();
+    app = main_menu();clc
+
 end
 
 main();
