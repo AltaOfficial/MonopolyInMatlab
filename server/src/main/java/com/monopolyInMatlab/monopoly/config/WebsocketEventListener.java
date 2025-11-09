@@ -5,6 +5,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
+import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
 @Component
@@ -14,11 +15,17 @@ public class WebsocketEventListener {
 
     @EventListener
     public void handleWebSocketConnectListener(SessionConnectEvent session) {
-        System.out.println("Received a new web socket connection" + session);
+        System.out.println("Received a new web socket connection: " + session);
     }
 
     @EventListener
+    public void handleWebSocketDisconnectListener(SessionDisconnectEvent session) {
+        System.out.println("Socket disconnected: " + session);
+    }
+
+
+    @EventListener
     public void handleWebSocketSubscribeListener(SessionSubscribeEvent session) {
-        System.out.println("Received a new web socket subscription");
+        System.out.println("Received a new web socket subscription: " + session.getMessage().getHeaders().toString() + "");
     }
 }

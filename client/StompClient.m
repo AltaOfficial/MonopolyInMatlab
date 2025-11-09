@@ -1,38 +1,70 @@
-classdef StompClient < SimpleClient
-    %CLIENT Summary of this class goes here
-    %   Detailed explanation goes here
-    
-    properties
+classdef StompClient < WebSocketClient
+    % Stomp Client
+    %   This class extends the WebSocketClient class so we don't need to manually handle
+    %   STOMP message formatting each time, these methods automatically take care of it.
+
+    methods(Static)
+        function obj = getInstance(connectionUrl)
+            persistent websocketConnection;
+            connectionExist = ~isempty(websocketConnection) && websocketConnection.Status == 1;
+
+            % If the input argument is an empty array ([]), it indicates that we need to
+            % reset or clear the websocketConnection and exit the function early.
+            % Continuing would cause the function to attempt connecting to an empty value.
+            if(nargin > 0 && isempty(connectionUrl))
+                if(connectionExist)
+                    try
+                       websocketConnection.stompDisconnect();
+                       websocketConnection.close();
+                    catch 
+                        % websocket connection already closed
+                    end
+                end
+                return;
+            end
+
+            % on the first call we require a websocket url to be provided
+            % and check to see if the instance has already been created
+            if(~connectionExist)
+                if(nargin > 0)
+                    websocketConnection = StompClient(connectionUrl);
+                else
+                    error("On the first call to get instance, you must provide a websocket server url to connect to!");
+                end
+            end
+
+            % if it is already created we return it or return the one
+            % that was created
+            obj = websocketConnection;
+        end
     end
-    
-    methods
+
+    methods(Access = private) % only the get instance function can call it
         function obj = StompClient(varargin)
-            %Constructor
-            % okay so for my reference @ means to call the constructor of
-            % something
 
-            % varargin{:}, the {:} is like a spread operator
-            % and I thought rust syntax was strange
-
-            % so obj is passed into the constructor
-            obj@SimpleClient(varargin{:});
+            obj@WebSocketClient(varargin{:});
             % Auto-connect to STOMP ws server
             obj.stompConnect();
-            clc
-            % giving client time to connect to the ws server
-            pause(2);
 
             if(obj.Status == 1)
                 disp("Client is connected");
             end
         end
-    
+    end
+
+    methods
         function stompConnect(obj)
             % This function connects to the websocket using the formatting stomp likes
             % we will connect using stomp version 1.2, so we can have
             % access to the latest features
             connectFrame = sprintf('CONNECT\naccept-version:1.2\nhost:/\n\n%c', 0);
             obj.send(connectFrame);
+        end
+
+        function stompDisconnect(obj)
+            % This function disconnects from the websocket server
+            disconnectFrame = sprintf('DISCONNECT\nreceipt:1\n\n%c', 0);
+            obj.send(disconnectFrame);
         end
 
         function stompSubscribe(obj, destination, subscriptionId)
@@ -65,11 +97,43 @@ classdef StompClient < SimpleClient
 
         function joinRoom(obj, roomId, playerName)
             playerStruct = struct("playerName", playerName);
-            destination = sprintf("/monopoly/room/%d/join", roomId);
+            joinRoomDestination = sprintf("/monopoly/room/%d/join", roomId);
+            subscribeToRoomDestination = sprintf("/room/%d", roomId);
             
-            obj.stompSubscribe(destination);
-            obj.stompSend(destination, playerStruct);
+            obj.stompSubscribe(subscribeToRoomDestination);
+            obj.stompSend(joinRoomDestination, playerStruct);
             
+        end
+
+        % leave room
+    end
+
+    % these functions need to be defined as stated in the superclass
+    methods(Access = protected)
+        function onOpen(obj, message)
+            % This function simply displays the message received
+            fprintf('%s\n', message);
+        end
+        
+        function onTextMessage(obj, message)
+            % This function simply displays the message received
+            fprintf('Message received:\n%s\n', message);
+        end
+        
+        function onBinaryMessage(obj, bytearray)
+            % This function simply displays the message received
+            fprintf('Binary message received:\n');
+            fprintf('Array length: %d\n', length(bytearray));
+        end
+        
+        function onError(obj, message)
+            % This function simply displays the message received
+            fprintf('Error: %s\n', message);
+        end
+        
+        function onClose(obj, message)
+            % This function simply displays the message received
+            fprintf('%s\n', message);
         end
        
     end

@@ -22,6 +22,7 @@ public class InMemoryRoomRepository implements RoomRepository {
     @Override
     public Room createRoom(CreateRoomRequest createRoomRequest) {
         Room newRoom = Room.builder().roomName(createRoomRequest.getRoomName()).build();
-        return rooms.putIfAbsent(createRoomRequest.getRoomName(), newRoom);
+        rooms.putIfAbsent(createRoomRequest.getRoomName(), newRoom);
+        return newRoom;
     }
 }

@@ -1,0 +1,29 @@
+function SaveWebsocketsLibrary()
+% Save the websockets library
+%   If websockets lib not found in static dir, save there and restart
+%   matlab
+
+    javaClassPath = fullfile(prefdir,'javaclasspath.txt');
+    javaClassPathFileId = fopen(javaClassPath, "a"); % creates a new file if one doesnt exist and opens
+
+    if(~contains((fileread(javaClassPath)), "matlab-websocket-1.6.jar"))
+        fprintf(javaClassPathFileId, "\r\nmatlab-websocket-1.6.jar");
+        
+        timeToRestart = 4;
+        while(~(timeToRestart == 0)) 
+            % give the user time to read restart message
+            clc;
+            fprintf("Matlab websockets library not in static dir, saving to it and restarting... %d", timeToRestart);
+            pause(1);
+            timeToRestart = timeToRestart - 1;
+        end
+        !matlab &
+        exit
+    end
+
+end
+
+% HELPFUL LINKS
+
+% Restart Matlab script
+% https://www.mathworks.com/matlabcentral/fileexchange/101470-restart-matlab

@@ -1,6 +1,7 @@
 package com.monopolyInMatlab.monopoly.service.impl;
 
 import com.monopolyInMatlab.monopoly.domain.CreateRoomRequest;
+import com.monopolyInMatlab.monopoly.domain.Player;
 import com.monopolyInMatlab.monopoly.domain.Room;
 import com.monopolyInMatlab.monopoly.persistence.RoomRepository;
 import com.monopolyInMatlab.monopoly.service.RoomsService;
@@ -20,8 +21,8 @@ public class RoomsServiceImpl implements RoomsService {
     }
 
     @Override
-    public void joinRoom() {
-
+    public void joinRoom(Player player) {
+        roomsRepository.joinRoom(player);
     }
 
     @Override

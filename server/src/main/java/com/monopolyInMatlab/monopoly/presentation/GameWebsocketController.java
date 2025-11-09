@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
@@ -15,10 +14,9 @@ public class GameWebsocketController {
     private final SimpMessagingTemplate simpMessagingTemplate;
 
     @MessageMapping("/room/{roomId}/join")
-    @SendTo("/room/{roomId}")
-    public String joinRoom(@DestinationVariable String roomId, @Payload Player player) {
+    public void joinRoom(@DestinationVariable String roomId, @Payload Player player) {
         System.out.println("Player " + player.getPlayerName() + " joined room " + roomId);
-        simpMessagingTemplate.convertAndSend("/room/123", "Hello from server");
-        return "Player " + player.getPlayerName() + " joined room " + roomId;
+        simpMessagingTemplate.convertAndSend("/room/123", "Player " + player.getPlayerName() + " joined room " + roomId);
     }
+
 }

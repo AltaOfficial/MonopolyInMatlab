@@ -1,24 +1,25 @@
 import Player.*; % la player class
 import StompClient.*; % the websocket client class
+import SaveWebsocketsLibrary.*; % function to install websocket library
 
 function main()
-    % adding matlab-websocket jar to dynamic java class path
-    javaaddpath("matlab-websocket-1.6.jar", "-end");
-    
-    % this gives a java bean error, but it still connects to the websocket
-    client = StompClient("ws://localhost:8000/ws");
+    clc;
+    SaveWebsocketsLibrary();
 
-    client.joinRoom(123, "barbelly dillon");
+    % Clear any previous websocket connections
+    StompClient.getInstance([]);
 
-    pause(5);
-
+    % Connect to the websocket server
+    StompClient.getInstance("ws://localhost:8000/ws");
 
     % open la main menu
-    app = main_menu();
+    main_menu();
 
 end
 
 main();
 
-% helpful links
-% https://www.youtube.com/watch?v=TywlS9iAZCM - Spring boot & Websockets
+% HELPFUL LINKS
+
+% Spring boot & Websockets
+% https://www.youtube.com/watch?v=TywlS9iAZCM
