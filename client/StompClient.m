@@ -116,8 +116,48 @@ classdef StompClient < WebSocketClient
         end
         
         function onTextMessage(obj, message)
-            % This function simply displays the message received
+            % This function parses STOMP messages and routes to Game singleton
             fprintf('Message received:\n%s\n', message);
+
+            try
+                % Parse STOMP frame to extract JSON body
+                lines = splitlines(message);
+
+                % Find the frame type (first line)
+                if ~isempty(lines) && ~isempty(lines{1})
+                    frameType = strtrim(lines{1});
+
+                    % Only process MESSAGE frames (not CONNECTED, RECEIPT, etc.)
+                    if strcmp(frameType, 'MESSAGE')
+                        % Find the empty line that separates headers from body
+                        bodyStartIdx = 0;
+                        for i = 1:length(lines)
+                            if isempty(strtrim(lines{i}))
+                                bodyStartIdx = i + 1;
+                                break;
+                            end
+                        end
+
+                        % Extract JSON body (everything after the empty line)
+                        if bodyStartIdx > 0 && bodyStartIdx <= length(lines)
+                            jsonBody = strjoin(lines(bodyStartIdx:end), '');
+
+                            % Remove null terminator if present
+                            jsonBody = strrep(jsonBody, char(0), '');
+                            jsonBody = strtrim(jsonBody);
+
+                            % Parse JSON and route to Game
+                            if ~isempty(jsonBody)
+                                msgJson = jsondecode(jsonBody);
+                                game = Game.gameInstance();
+                                game.processWebsocketMessage(msgJson);
+                            end
+                        end
+                    end
+                end
+            catch ME
+                fprintf('Error processing message: %s\n', ME.message);
+            end
         end
         
         function onBinaryMessage(obj, bytearray)

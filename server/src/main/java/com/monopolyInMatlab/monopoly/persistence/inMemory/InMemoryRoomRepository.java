@@ -1,6 +1,8 @@
 package com.monopolyInMatlab.monopoly.persistence.inMemory;
 
 import com.monopolyInMatlab.monopoly.domain.CreateRoomRequest;
+import com.monopolyInMatlab.monopoly.domain.GameRoom;
+import com.monopolyInMatlab.monopoly.domain.Player;
 import com.monopolyInMatlab.monopoly.domain.Room;
 import com.monopolyInMatlab.monopoly.persistence.RoomRepository;
 import org.springframework.stereotype.Repository;
@@ -21,8 +23,19 @@ public class InMemoryRoomRepository implements RoomRepository {
 
     @Override
     public Room createRoom(CreateRoomRequest createRoomRequest) {
-        Room newRoom = Room.builder().roomName(createRoomRequest.getRoomName()).build();
+        GameRoom newRoom = GameRoom.builder()
+                .roomId(UUID.randomUUID())
+                .roomName(createRoomRequest.getRoomName())
+                .players(new java.util.LinkedList<>())
+                .isStarted(false)
+                .build();
         rooms.putIfAbsent(createRoomRequest.getRoomName(), newRoom);
         return newRoom;
+    }
+
+    @Override
+    public void joinRoom(Player player) {
+        // Find room and add player - simplified implementation
+        // In production, would need proper room lookup
     }
 }

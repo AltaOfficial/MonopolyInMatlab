@@ -1,14 +1,12 @@
 package com.monopolyInMatlab.monopoly.domain;
 
-import lombok.Builder;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 import java.util.UUID;
 
 @Data
-@Builder
-@RequiredArgsConstructor
+@SuperBuilder
 public class Player {
     private final UUID playerId;
     private final String playerName;
