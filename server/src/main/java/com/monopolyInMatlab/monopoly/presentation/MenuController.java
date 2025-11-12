@@ -5,6 +5,7 @@ import com.monopolyInMatlab.monopoly.domain.Room;
 import com.monopolyInMatlab.monopoly.service.RoomsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import com.monopolyInMatlab.monopoly.domain.Player;
 
 import java.util.List;
 import java.util.UUID;
@@ -23,5 +24,15 @@ public class MenuController {
     @PostMapping("/createroom")
     public Room createRoom(@RequestBody CreateRoomRequest createRoomRequest) {
         return roomsService.createRoom(createRoomRequest);
+    }
+
+    @PostMapping("/rooms/{roomId}/join")
+    public void joinRoom(@PathVariable UUID roomId, @RequestBody Player player) {
+        roomsService.joinRoom(roomId, player);
+    }
+
+    @PostMapping("/rooms/{roomId}/leave")
+    public void leaveRoom(@PathVariable UUID roomId, @RequestBody UUID playerId) {
+        roomsService.leaveRoom(roomId, playerId);
     }
 }

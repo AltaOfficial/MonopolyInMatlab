@@ -2,22 +2,17 @@ import Player.*; % la player class
 import StompClient.*; % the websocket client class
 import SaveWebsocketsLibrary.*; % function to install websocket library
 
-function main()
-    clc;
-    SaveWebsocketsLibrary();
+clc;
+SaveWebsocketsLibrary();
 
-    % Clear any previous websocket connections
-    StompClient.getInstance([]);
+% Clear any previous websocket connections
+StompClient.getInstance([]);
 
-    % Connect to the websocket server
-    StompClient.getInstance("ws://localhost:8000/ws");
+% Connect to the websocket server
+StompClient.getInstance("ws://localhost:8000/ws");
 
-    % open la main menu
-    main_menu();
-
-end
-
-main();
+% open la main menu
+main_menu();
 
 % HELPFUL LINKS
 

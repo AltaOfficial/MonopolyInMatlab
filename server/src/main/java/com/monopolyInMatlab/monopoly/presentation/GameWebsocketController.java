@@ -26,6 +26,8 @@ public class GameWebsocketController {
     public void joinRoom(@DestinationVariable String roomId, @Payload Player player) {
         System.out.println("Player " + player.getPlayerName() + " joined room " + roomId);
 
+        // Note: RoomsService.joinRoom should be called from client before websocket connection
+        // This message handler just broadcasts the join event
         Map<String, Object> data = new HashMap<>();
         data.put("playerId", player.getPlayerId().toString());
         data.put("playerName", player.getPlayerName());
@@ -339,7 +341,7 @@ public class GameWebsocketController {
                 .data(data)
                 .build();
 
-        simpMessagingTemplate.convertAndSend("/topic/room/" + roomId, message);
+        simpMessagingTemplate.convertAndSend("/monopoly/room/" + roomId, message);
     }
 
     private void broadcastError(String roomId, String errorMessage) {
