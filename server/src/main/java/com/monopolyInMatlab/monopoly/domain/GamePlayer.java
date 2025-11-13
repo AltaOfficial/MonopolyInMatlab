@@ -2,15 +2,18 @@ package com.monopolyInMatlab.monopoly.domain;
 
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.experimental.SuperBuilder;
 
 import java.util.*;
 
 @Data
-@SuperBuilder
-@EqualsAndHashCode(callSuper = true)
-public class GamePlayer extends Player {
+@Builder
+public class GamePlayer {
+    // Player fields
+    @Builder.Default
+    private UUID playerId = UUID.randomUUID();
+    private String playerName;
+
+    // Game fields
     @Builder.Default
     private int position = 0;  // 0-39, starts at GO (position 0)
 

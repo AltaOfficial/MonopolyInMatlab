@@ -23,7 +23,7 @@ public class GameWebsocketController {
     private final ChatService chatService;
 
     @MessageMapping("/room/{roomId}/join")
-    public void joinRoom(@DestinationVariable String roomId, @Payload Player player) {
+    public void joinRoom(@DestinationVariable String roomId, @Payload GamePlayer player) {
         System.out.println("Player " + player.getPlayerName() + " joined room " + roomId);
 
         // Note: RoomsService.joinRoom should be called from client before websocket connection
@@ -52,7 +52,7 @@ public class GameWebsocketController {
                 .timestamp(chatMessage.getTimestamp())
                 .build();
 
-        simpMessagingTemplate.convertAndSend("/topic/room/" + roomId, dto);
+        simpMessagingTemplate.convertAndSend("/monopoly/room/" + roomId, dto);
     }
 
     // Game lifecycle

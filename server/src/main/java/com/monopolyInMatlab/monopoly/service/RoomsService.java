@@ -2,21 +2,20 @@ package com.monopolyInMatlab.monopoly.service;
 
 import com.monopolyInMatlab.monopoly.domain.CreateRoomRequest;
 import com.monopolyInMatlab.monopoly.domain.GameRoom;
-import com.monopolyInMatlab.monopoly.domain.Player;
-import com.monopolyInMatlab.monopoly.domain.Room;
+import com.monopolyInMatlab.monopoly.domain.GamePlayer;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface RoomsService {
 
-    Room createRoom(CreateRoomRequest createRoomRequest);
+    GameRoom createRoom(CreateRoomRequest createRoomRequest);
 
-    void joinRoom(UUID roomId, Player player);
+    void joinRoom(UUID roomId, GamePlayer player);
 
     void leaveRoom(UUID roomId, UUID playerId);
 
-    List<Room> getAllRooms();
+    List<GameRoom> getAllRooms();
 
     GameRoom getGameRoom(UUID roomId);
 

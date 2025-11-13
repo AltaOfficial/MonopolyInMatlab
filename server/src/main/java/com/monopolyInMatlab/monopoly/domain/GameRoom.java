@@ -2,15 +2,20 @@ package com.monopolyInMatlab.monopoly.domain;
 
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.experimental.SuperBuilder;
 
 import java.util.*;
 
 @Data
-@SuperBuilder
-@EqualsAndHashCode(callSuper = true)
-public class GameRoom extends Room {
+@Builder
+public class GameRoom {
+    // Room fields
+    private UUID roomId;
+    private String roomName;
+
+    @Builder.Default
+    private boolean isStarted = false;
+
+    // Game fields
     @Builder.Default
     private List<BoardSpace> boardSpaces = new ArrayList<>();
 

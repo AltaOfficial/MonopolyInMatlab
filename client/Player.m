@@ -1,36 +1,41 @@
 classdef Player < handle
-    % Player - Represents a player in the Monopoly game
+    % Player - Represents a player in the Monopoly game (matches server GamePlayer)
 
     properties
-        playerID           % UUID string
-        name              % Player name
-        position = 0      % Board position (0-39, 0-indexed to match server)
-        money = 1500      % Current money
-        ownedProperties   % Array of Property objects
-        inJail = false    % Jail status
-        jailTurns = 0     % Turns spent in jail
-        getOutOfJailCards = 0  % Get Out of Jail Free cards
-        isBankrupt = false     % Bankruptcy status
-        isClient = false  % True if this is the local player
+        % Player fields (from server GamePlayer)
+        playerId           % UUID string
+        playerName         % Player name
 
-        % Extended properties
-        colorGroupCounts   % containers.Map of color group counts
-        monopolies        % Cell array of color groups where player has monopoly
-        totalHouses = 0   % Total houses owned
-        totalHotels = 0   % Total hotels owned
-        netWorth = 0      % Calculated net worth
+        % Game fields
+        position = 0       % Board position (0-39, 0-indexed to match server)
+        money = 1500       % Current money
+        ownedPropertyPositions  % Array of integers (property positions)
+        inJail = false     % Jail status
+        jailTurns = 0      % Turns spent in jail
+        getOutOfJailCards = 0   % Get Out of Jail Free cards
+        isBankrupt = false      % Bankruptcy status
+        colorGroupCounts   % containers.Map of color group counts (ColorGroup -> count)
+        totalHouses = 0    % Total houses owned
+        totalHotels = 0    % Total hotels owned
+
+        % Client-only properties
+        isClient = false   % True if this is the local player
+        ownedProperties    % Array of Property objects (client-side only for UI)
+        monopolies         % Cell array of color groups where player has monopoly
+        netWorth = 0       % Calculated net worth
     end
 
     methods
-        function obj = Player(playerID, name, isClient)
+        function obj = Player(playerId, playerName, isClient)
             % Constructor
             if nargin >= 2
-                obj.playerID = playerID;
-                obj.name = name;
+                obj.playerId = playerId;
+                obj.playerName = playerName;
                 if nargin >= 3
                     obj.isClient = isClient;
                 end
             end
+            obj.ownedPropertyPositions = [];
             obj.ownedProperties = [];
             obj.colorGroupCounts = containers.Map();
             obj.monopolies = {};
@@ -38,11 +43,20 @@ classdef Player < handle
 
         function updateFromServerData(obj, playerData)
             % Sync player state from server broadcast
+            if isfield(playerData, 'playerId')
+                obj.playerId = playerData.playerId;
+            end
+            if isfield(playerData, 'playerName')
+                obj.playerName = playerData.playerName;
+            end
             if isfield(playerData, 'position')
                 obj.position = playerData.position;
             end
             if isfield(playerData, 'money')
                 obj.money = playerData.money;
+            end
+            if isfield(playerData, 'ownedPropertyPositions')
+                obj.ownedPropertyPositions = playerData.ownedPropertyPositions;
             end
             if isfield(playerData, 'inJail')
                 obj.inJail = playerData.inJail;
@@ -56,6 +70,14 @@ classdef Player < handle
             if isfield(playerData, 'isBankrupt')
                 obj.isBankrupt = playerData.isBankrupt;
             end
+            if isfield(playerData, 'colorGroupCounts')
+                % Convert server map to MATLAB containers.Map
+                obj.colorGroupCounts = containers.Map();
+                fields = fieldnames(playerData.colorGroupCounts);
+                for i = 1:length(fields)
+                    obj.colorGroupCounts(fields{i}) = playerData.colorGroupCounts.(fields{i});
+                end
+            end
             if isfield(playerData, 'totalHouses')
                 obj.totalHouses = playerData.totalHouses;
             end
@@ -65,9 +87,14 @@ classdef Player < handle
         end
 
         function addProperty(obj, propertyObj)
-            % Add property to owned properties
+            % Add property to owned properties (client-side)
             obj.ownedProperties(end+1) = propertyObj;
             propertyObj.owner = obj;
+
+            % Add position to ownedPropertyPositions (matches server)
+            if ~ismember(propertyObj.position, obj.ownedPropertyPositions)
+                obj.ownedPropertyPositions(end+1) = propertyObj.position;
+            end
 
             % Update color group count
             if ~isempty(propertyObj.colorGroup)
@@ -87,6 +114,9 @@ classdef Player < handle
             % Remove property from owned properties
             obj.ownedProperties(obj.ownedProperties == propertyObj) = [];
             propertyObj.owner = [];
+
+            % Remove position from ownedPropertyPositions
+            obj.ownedPropertyPositions(obj.ownedPropertyPositions == propertyObj.position) = [];
 
             % Update color group count
             if ~isempty(propertyObj.colorGroup) && obj.colorGroupCounts.isKey(propertyObj.colorGroup)
@@ -181,13 +211,13 @@ classdef Player < handle
 
         function str = toString(obj)
             % String representation
-            str = sprintf('%s: $%d at position %d', obj.name, obj.money, obj.position);
+            str = sprintf('%s: $%d at position %d', obj.playerName, obj.money, obj.position);
         end
     end
 
     methods (Static)
         function obj = fromServerData(data)
-            % Create Player from server JSON data
+            % Create Player from server JSON data (GamePlayer)
             obj = Player(data.playerId, data.playerName, false);
             obj.updateFromServerData(data);
         end

@@ -1,8 +1,8 @@
 function response = webRequest(url, data)
-    %WEBREQUEST Summary of this function goes here
-    %   Detailed explanation goes here
     import matlab.net.*;
     import matlab.net.http.*;
+    %WEBREQUEST Summary of this function goes here
+    %   Detailed explanation goes here
 
     uri = URI(url);
 

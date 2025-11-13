@@ -2,8 +2,7 @@ package com.monopolyInMatlab.monopoly.service.impl;
 
 import com.monopolyInMatlab.monopoly.domain.CreateRoomRequest;
 import com.monopolyInMatlab.monopoly.domain.GameRoom;
-import com.monopolyInMatlab.monopoly.domain.Player;
-import com.monopolyInMatlab.monopoly.domain.Room;
+import com.monopolyInMatlab.monopoly.domain.GamePlayer;
 import com.monopolyInMatlab.monopoly.persistence.RoomRepository;
 import com.monopolyInMatlab.monopoly.service.RoomsService;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +17,12 @@ public class RoomsServiceImpl implements RoomsService {
     private final RoomRepository roomsRepository;
 
     @Override
-    public Room createRoom(CreateRoomRequest createRoomRequest) {
+    public GameRoom createRoom(CreateRoomRequest createRoomRequest) {
         return roomsRepository.createRoom(createRoomRequest);
     }
 
     @Override
-    public void joinRoom(UUID roomId, Player player) {
+    public void joinRoom(UUID roomId, GamePlayer player) {
         roomsRepository.joinRoom(roomId, player);
     }
 
@@ -31,13 +30,13 @@ public class RoomsServiceImpl implements RoomsService {
     public void leaveRoom(UUID roomId, UUID playerId) {
         GameRoom room = roomsRepository.findGameRoomById(roomId);
         if (room != null) {
-            room.getPlayers().removeIf(player -> player.getPlayerId().equals(playerId));
+            room.getGamePlayers().removeIf(player -> player.getPlayerId().equals(playerId));
             roomsRepository.saveGameRoom(room);
         }
     }
 
     @Override
-    public List<Room> getAllRooms() {
+    public List<GameRoom> getAllRooms() {
         return roomsRepository.getAllRooms();
     }
 

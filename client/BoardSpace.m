@@ -4,16 +4,16 @@ classdef BoardSpace < handle
     properties
         position        % Board position (0-39)
         name           % Space name
-        type           % 'CORNER', 'TAX', 'CHANCE', 'COMMUNITY_CHEST'
+        spaceType           % 'CORNER', 'TAX', 'CHANCE', 'COMMUNITY_CHEST'
         taxAmount      % Tax amount (for tax spaces)
     end
 
     methods
-        function obj = BoardSpace(position, name, type, taxAmount)
+        function obj = BoardSpace(position, name, spaceType, taxAmount)
             if nargin > 0
                 obj.position = position;
                 obj.name = name;
-                obj.type = type;
+                obj.spaceType = spaceType;
                 if nargin >= 4
                     obj.taxAmount = taxAmount;
                 else
@@ -30,7 +30,7 @@ classdef BoardSpace < handle
     methods (Static)
         function obj = fromServerData(data)
             % Create BoardSpace from server JSON data
-            obj = BoardSpace(data.position, data.name, data.type, data.taxAmount);
+            obj = BoardSpace(data.position, data.name, data.spaceType, data.taxAmount);
         end
     end
 end

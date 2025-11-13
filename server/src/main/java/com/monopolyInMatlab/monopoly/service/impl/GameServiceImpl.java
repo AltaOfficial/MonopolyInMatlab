@@ -1,7 +1,5 @@
 package com.monopolyInMatlab.monopoly.service.impl;
 
-import com.monopolyInMatlab.monopoly.config.BoardConfiguration;
-import com.monopolyInMatlab.monopoly.config.CardConfiguration;
 import com.monopolyInMatlab.monopoly.config.GameConstants;
 import com.monopolyInMatlab.monopoly.domain.*;
 import com.monopolyInMatlab.monopoly.dto.TradeOfferDTO;
@@ -11,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,33 +18,18 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public GameRoom initializeGame(UUID roomId) {
-        GameRoom room = (GameRoom) roomRepository.getAllRooms().stream()
-                .filter(r -> r.getRoomId().equals(roomId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+        GameRoom room = roomRepository.findGameRoomById(roomId);
+        if (room == null) {
+            throw new IllegalArgumentException("Room not found");
+        }
 
-        // Initialize board
-        room.setBoardSpaces(BoardConfiguration.createStandardBoard());
+        // Initialize game players with starting values
+        for (GamePlayer player : room.getGamePlayers()) {
+            player.setPosition(GameConstants.STARTING_POSITION);
+            player.setMoney(GameConstants.STARTING_MONEY);
+        }
 
-        // Initialize and shuffle card decks
-        List<Card> chanceCards = CardConfiguration.createChanceCards();
-        List<Card> communityChestCards = CardConfiguration.createCommunityChestCards();
-        Collections.shuffle(chanceCards);
-        Collections.shuffle(communityChestCards);
-        room.setChanceCards(chanceCards);
-        room.setCommunityChestCards(communityChestCards);
-
-        // Convert regular players to game players
-        List<GamePlayer> gamePlayers = room.getPlayers().stream()
-                .map(p -> GamePlayer.builder()
-                        .playerId(p.getPlayerId())
-                        .playerName(p.getPlayerName())
-                        .position(GameConstants.STARTING_POSITION)
-                        .money(GameConstants.STARTING_MONEY)
-                        .build())
-                .collect(Collectors.toList());
-        room.setGamePlayers(gamePlayers);
-
+        roomRepository.saveGameRoom(room);
         return room;
     }
 
@@ -243,8 +225,7 @@ public class GameServiceImpl implements GameService {
             } else {
                 throw new IllegalStateException("Cannot buy property");
             }
-        } else if (space instanceof UtilitySpace) {
-            UtilitySpace util = (UtilitySpace) space;
+        } else if (space instanceof UtilitySpace util) {
             price = util.getPurchasePrice();
             currentOwner = util.getOwnerId();
             colorGroup = ColorGroup.UTILITY;
