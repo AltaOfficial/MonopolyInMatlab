@@ -28,6 +28,7 @@ classdef Game < handle
 
         % Client-only properties
         weAreHost = false       % True if local player is host
+        myPlayerId              % UUID of the local player
         currentPlayerTurnId     % UUID of player whose turn it is (derived from currentPlayerIndex)
         stompClient             % Reference to StompClient singleton
         app                     % Reference to the App Designer app
@@ -42,12 +43,11 @@ classdef Game < handle
     end
 
     methods (Static)
-        function obj = gameInstance(app, roomId, userIsHost)
+        function obj = gameInstance(app, roomId, userIsHost, myPlayerId)
             import webRequest.*;
             % Get singleton instance
             % Usage:
-            %   game = Game.gameInstance(app, roomId)  - Initialize with
-            %   app reference and get roomDetails from backend
+            %   game = Game.gameInstance(app, roomId, userIsHost, myPlayerId)  - Initialize with app, roomId, host status, and local player ID
             %   game = Game.gameInstance()     - Get existing instance
 
             persistent game;
@@ -57,23 +57,26 @@ classdef Game < handle
                 if isempty(game)
                     % Getting the room details from the server
                     roomDetails = [];
-                    
+
                     response = webRequest(sprintf("http://localhost:8000/menu/room/%s", roomId));
                     if ~isempty(response.Body.Data)
                         roomDetails = response.Body.Data;
                     else
                         error("failed to get room details from server");
                     end
-                    
-                    game = Game(app, roomDetails, userIsHost);
+
+                    game = Game(app, roomDetails, userIsHost, myPlayerId);
                 else
                     % Instance already exists, update app reference and roomId
                     game.app = app;
                     game.roomId = roomId;
-                    game.weArehost = userIsHost;
+                    game.weAreHost = userIsHost;
+                    if nargin > 3
+                        game.myPlayerId = myPlayerId;
+                    end
 
                     % Fetch updated room details if roomId changed
-                    
+
                     response = webRequest(sprintf("http://localhost:8000/menu/room/%s", roomId));
                     if ~isempty(response.Body.Data)
                         game.updateFromServerData(response.Body.Data);
@@ -84,7 +87,7 @@ classdef Game < handle
             else
                 % Just getting existing instance
                 if isempty(game)
-                    error('Game instance not initialized. Call Game.gameInstance(app, roomId) first with your app and roomId parameter.');
+                    error('Game instance not initialized. Call Game.gameInstance(app, roomId, userIsHost, myPlayerId) first.');
                 end
             end
 
@@ -93,8 +96,8 @@ classdef Game < handle
     end
 
     methods (Access = private)
-        function obj = Game(app, roomDetails, userIsHost)
-            % Private constructor - use gameInstance(app, roomDetails) instead
+        function obj = Game(app, roomDetails, userIsHost, myPlayerId)
+            % Private constructor - use gameInstance(app, roomDetails, userIsHost, myPlayerId) instead
             if nargin > 0
                 obj.app = app;
             else
@@ -114,6 +117,13 @@ classdef Game < handle
 
             if nargin > 2
                 obj.weAreHost = userIsHost;
+                if(userIsHost == true)
+                    app.EndTurnButton.Text = "Start Game";
+                end
+            end
+
+            if nargin > 3
+                obj.myPlayerId = myPlayerId;
             end
 
             % Set up aliases for backwards compatibility
@@ -138,6 +148,7 @@ classdef Game < handle
 
         function updateFromServerData(obj, gameRoomData)
             % Update Game state from server GameRoom data
+            disp(gameRoomData);
 
             if(nargin < 1)
                 gameRoomData = webRequest(sprintf("http://localhost:8000/menu/room/%s", obj.roomId)).Body.Data;
@@ -160,6 +171,7 @@ classdef Game < handle
             end
             if isfield(gameRoomData, 'gamePlayers')
                 obj.gamePlayers = {};
+
                 playersData = gameRoomData.gamePlayers;
 
                 % Handle both cell array and struct array formats
@@ -167,15 +179,24 @@ classdef Game < handle
                     numPlayers = length(playersData);
                     for i = 1:numPlayers
                         obj.app.(['Player' num2str(i) 'Label']).Text = playersData{i}.playerName;
-                        obj.gamePlayers{i} = Player.fromServerData(playersData{i});
+                        newPlayer = Player.fromServerData(playersData{i});
+                        % Mark if this is the local player
+                        if ~isempty(obj.myPlayerId) && strcmp(newPlayer.playerId, obj.myPlayerId)
+                            newPlayer.isClient = true;
+                        end
+                        obj.gamePlayers{i} = newPlayer;
                     end
                 elseif isstruct(playersData)
                     % Handle single struct or struct array
                     numPlayers = length(playersData);
                     for i = 1:numPlayers
-                        disp(playersData(i));
                         obj.app.(['Player' num2str(i) 'Label']).Text = playersData(i).playerName;
-                        obj.gamePlayers{i} = Player.fromServerData(playersData(i));
+                        newPlayer = Player.fromServerData(playersData(i));
+                        % Mark if this is the local player
+                        if ~isempty(obj.myPlayerId) && strcmp(newPlayer.playerId, obj.myPlayerId)
+                            newPlayer.isClient = true;
+                        end
+                        obj.gamePlayers{i} = newPlayer;
                     end
                 end
 
@@ -252,13 +273,13 @@ classdef Game < handle
             try
                 if isfield(msgJson, 'messageType')
                     messageType = msgJson.messageType;
+                    disp(messageType);
 
                     if strcmp(messageType, 'CHAT_MESSAGE')
                         obj.handleChatMessage(msgJson);
-                    elseif startsWith(messageType, 'GAME_') || strcmp(messageType, 'ERROR')
-                        obj.handleGameEvent(msgJson);
                     else
-                        warning('Unknown message type: %s', messageType);
+                        % All other message types are game events
+                        obj.handleGameEvent(msgJson);
                     end
                 end
             catch ME
@@ -271,14 +292,13 @@ classdef Game < handle
             chatMsg = struct(...
                 'playerId', msgJson.playerId, ...
                 'playerName', msgJson.playerName, ...
-                'message', msgJson.message, ...
-                'timestamp', msgJson.timestamp);
+                'message', msgJson.message);
 
             obj.chatHistory{end+1} = chatMsg;
             obj.chatMessages = obj.chatHistory;  % Update alias
 
-            % TODO: Trigger UI update callback here
-            obj.app.TextArea.Value = obj.app.TextArea.Value + sprintf('%s: %s\n', msgJson.playerName, msgJson.message);
+            % Append to TextArea
+            obj.appendToTextArea(sprintf('%s: %s', msgJson.playerName, msgJson.message));
         end
 
         function handleGameEvent(obj, msgJson)
@@ -286,22 +306,27 @@ classdef Game < handle
             messageType = msgJson.messageType;
             data = msgJson.data;
 
-            obj.updateFromServerData();
+            % Fetch and update game state from server
+            
+            response = webRequest(sprintf("http://localhost:8000/menu/room/%s", obj.roomId));
+            if ~isempty(response.Body.Data)
+                obj.updateFromServerData(response.Body.Data);
+            end
 
-            fprintf('[GAME EVENT] %s\n', messageType);
+            fprintf('[GAME EVENT] %s', messageType);
 
             switch messageType
                 case 'GAME_STARTED'
                     obj.gamePhase = 'IN_PROGRESS';
                     obj.currentPlayerTurnId = data.currentPlayerId;
                     obj.isStarted = true;
-                    fprintf('Game started! Current player: %s\n', obj.currentPlayerTurnId);
+                    obj.appendToTextArea(sprintf('Game started! Current player: %s', obj.currentPlayerTurnId));
                     % TODO: Update UI - disable lobby controls, enable game controls, show current player
 
                 case 'DICE_ROLLED'
                     obj.lastDiceRoll = data.dice;
                     obj.currentDice = obj.lastDiceRoll;  % Update alias
-                    fprintf('Player rolled: [%d, %d]\n', data.dice(1), data.dice(2));
+                    obj.appendToTextArea(sprintf('Player rolled: [%d, %d]', data.dice(1), data.dice(2)));
                     % TODO: Update UI - animate dice roll, display dice values
 
                 case 'PLAYER_MOVED'
@@ -310,7 +335,7 @@ classdef Game < handle
                     if ~isempty(player)
                         player.position = data.newPosition;
                         player.money = data.money;
-                        fprintf('%s moved to position %d\n', player.playerName, data.newPosition);
+                        obj.appendToTextArea(sprintf('%s moved to position %d', player.playerName, data.newPosition));
                     end
                     % TODO: Update UI - animate player token movement, update player money display
 
@@ -322,7 +347,7 @@ classdef Game < handle
                         prop = obj.boardSpaces{position + 1};  % MATLAB 1-indexing
                         player.addProperty(prop);
                         player.money = data.money;
-                        fprintf('%s bought %s\n', player.playerName, prop.name);
+                        obj.appendToTextArea(sprintf('%s bought %s', player.playerName, prop.name));
                     end
                     % TODO: Update UI - show property ownership color, update player money and properties list
 
@@ -330,7 +355,7 @@ classdef Game < handle
                     position = data.position;
                     prop = obj.boardSpaces{position + 1};
                     prop.housesBuilt = data.housesBuilt;
-                    fprintf('House built on %s (total: %d)\n', prop.name, data.housesBuilt);
+                    obj.appendToTextArea(sprintf('House built on %s (total: %d)', prop.name, data.housesBuilt));
                     % TODO: Update UI - display house icons on property
 
                 case 'HOTEL_BUILT'
@@ -338,66 +363,91 @@ classdef Game < handle
                     prop = obj.boardSpaces{position + 1};
                     prop.hasHotel = true;
                     prop.housesBuilt = 0;
-                    fprintf('Hotel built on %s\n', prop.name);
+                    obj.appendToTextArea(sprintf('Hotel built on %s', prop.name));
                     % TODO: Update UI - replace house icons with hotel icon
 
                 case 'PROPERTY_MORTGAGED'
                     position = data.position;
                     prop = obj.boardSpaces{position + 1};
                     prop.isMortgaged = true;
-                    fprintf('%s mortgaged\n', prop.name);
+                    obj.appendToTextArea(sprintf('%s mortgaged', prop.name));
                     % TODO: Update UI - show property as mortgaged (grayed out or marked)
 
                 case 'PROPERTY_UNMORTGAGED'
                     position = data.position;
                     prop = obj.boardSpaces{position + 1};
                     prop.isMortgaged = false;
-                    fprintf('%s unmortgaged\n', prop.name);
+                    obj.appendToTextArea(sprintf('%s unmortgaged', prop.name));
                     % TODO: Update UI - restore property appearance from mortgaged state
 
                 case 'RENT_PAID'
-                    fprintf('Rent paid: $%d from %s to %s\n', ...
-                        data.amount, data.payerId, data.payeeId);
+                    obj.appendToTextArea(sprintf('Rent paid: $%d from %s to %s', ...
+                        data.amount, data.payerId, data.payeeId));
                     % TODO: Update UI - show transaction animation, update both players' money
 
                 case 'CARD_DRAWN'
-                    fprintf('Card drawn: %s\n', data.description);
+                    obj.appendToTextArea(sprintf('Card drawn: %s', data.description));
                     % TODO: Update UI - display card popup with description and action
 
                 case 'TURN_CHANGED'
                     obj.currentPlayerTurnId = data.currentPlayerId;
                     obj.doublesCount = 0;
-                    fprintf('Turn changed to: %s\n', obj.currentPlayerTurnId);
+                    obj.appendToTextArea(sprintf('Turn changed to: %s', obj.currentPlayerTurnId));
                     % TODO: Update UI - highlight current player, enable/disable controls based on turn
 
                 case 'GAME_OVER'
                     obj.gamePhase = 'FINISHED';
                     obj.winner = obj.getPlayerById(data.winnerId);
-                    fprintf('Game over! Winner: %s\n', obj.winner.playerName);
+                    obj.appendToTextArea(sprintf('Game over! Winner: %s', obj.winner.playerName));
                     % TODO: Update UI - show winner screen with confetti/celebration
 
+                case 'PLAYER_JOINED'
+                    obj.appendToTextArea(sprintf('Player joined: %s', data.playerName));
+                    % TODO: Update UI - add player to player list in lobby
+
                 case 'TRADE_PROPOSED'
-                    fprintf('Trade proposed\n');
+                    obj.appendToTextArea('Trade proposed');
                     % TODO: Update UI - show trade offer dialog to recipient
 
+                case 'TRADE_COMPLETED'
+                    obj.appendToTextArea('Trade completed');
+                    % TODO: Update UI - close trade dialog, update both players' properties and money
+
+                case 'TRADE_DECLINED'
+                    obj.appendToTextArea('Trade declined');
+                    % TODO: Update UI - close trade dialog, notify trade was declined
+
                 case 'AUCTION_STARTED'
-                    fprintf('Auction started for position %d\n', data.position);
+                    obj.appendToTextArea(sprintf('Auction started for position %d', data.position));
                     % TODO: Update UI - show auction panel with property details and bid controls
 
                 case 'BID_PLACED'
-                    fprintf('Bid placed: $%d\n', data.amount);
+                    obj.appendToTextArea(sprintf('Bid placed: $%d', data.amount));
                     % TODO: Update UI - update auction panel with new highest bid and bidder
 
-                case 'PLAYER_JOINED'
-                    fprintf('Player joined: %s\n', data.playerName);
-                    % TODO: Update UI - add player to player list in lobby
+                case 'AUCTION_ENDED'
+                    obj.appendToTextArea('Auction ended');
+                    % TODO: Update UI - close auction panel
+
+                case 'PLAYER_RELEASED_JAIL'
+                    playerId = data.playerId;
+                    player = obj.getPlayerById(playerId);
+                    if ~isempty(player)
+                        player.inJail = ~data.released;
+                        if data.released
+                            obj.appendToTextArea(sprintf('%s was released from jail', player.playerName));
+                        else
+                            obj.appendToTextArea(sprintf('%s is still in jail', player.playerName));
+                        end
+                    end
+                    % TODO: Update UI - update jail status indicator for player
 
                 case 'ERROR'
-                    fprintf('[ERROR] %s\n', data.error);
+                    obj.appendToTextArea(sprintf('[ERROR] %s', data.error));
                     % TODO: Update UI - display error dialog or notification to user
 
                 otherwise
-                    fprintf('Unhandled game event: %s\n', messageType);
+                    obj.appendToTextArea(sprintf('Unhandled game event: %s', messageType));
             end
         end
 
@@ -410,13 +460,15 @@ classdef Game < handle
                 return;
             end
 
+            fprintf("sending message: %s", message);
+
             myPlayer = obj.getMyPlayer();
             payload = struct(...
                 'playerId', myPlayer.playerId, ...
                 'playerName', myPlayer.playerName, ...
                 'message', message);
 
-            obj.stompClient.stompSend(sprintf('/app/room/%s/chat', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/chat', obj.roomId), payload);
         end
 
         function messages = getChatMessages(obj)
@@ -428,68 +480,68 @@ classdef Game < handle
 
         function requestStartGame(obj)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/start', obj.roomId), struct());
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/start', obj.roomId), struct());
         end
 
         function requestRollDice(obj)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/roll', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/roll', obj.roomId), payload);
         end
 
         function requestBuyProperty(obj, position)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId, 'position', position);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/buyProperty', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/buyProperty', obj.roomId), payload);
         end
 
         function requestDeclineProperty(obj, position)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId, 'position', position);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/declineProperty', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/declineProperty', obj.roomId), payload);
         end
 
         function requestBuildHouse(obj, position)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId, 'position', position);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/buildHouse', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/buildHouse', obj.roomId), payload);
         end
 
         function requestBuildHotel(obj, position)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId, 'position', position);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/buildHotel', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/buildHotel', obj.roomId), payload);
         end
 
         function requestMortgage(obj, position)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId, 'position', position);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/mortgage', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/mortgage', obj.roomId), payload);
         end
 
         function requestUnmortgage(obj, position)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId, 'position', position);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/unmortgage', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/unmortgage', obj.roomId), payload);
         end
 
         function requestJailAction(obj, actionType)
             % actionType: 'PAY', 'CARD', or 'ROLL'
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId, 'action', actionType);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/jailAction', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/jailAction', obj.roomId), payload);
         end
 
         function requestEndTurn(obj)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/endTurn', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/endTurn', obj.roomId), payload);
         end
 
         function requestPlaceBid(obj, amount)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId, 'amount', amount);
-            obj.stompClient.stompSend(sprintf('/app/room/%s/game/placeBid', obj.roomId), payload);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/placeBid', obj.roomId), payload);
         end
 
         %% ===== HELPER METHODS =====
@@ -574,6 +626,19 @@ classdef Game < handle
                 prop = obj.boardSpaces{position + 1};  % MATLAB 1-indexing
             else
                 prop = [];
+            end
+        end
+
+        function appendToTextArea(obj, text)
+            % Append text to TextArea with proper newline handling
+            % Top = oldest, Bottom = newest
+            currentValue = obj.app.TextArea.Value;
+            if isempty(currentValue) || (iscell(currentValue) && isempty(currentValue{1}))
+                % First item, no newline needed
+                obj.app.TextArea.Value = {text};
+            else
+                % Append with newline
+                obj.app.TextArea.Value = [currentValue; {text}];
             end
         end
 

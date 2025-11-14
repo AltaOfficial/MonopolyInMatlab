@@ -13,5 +13,4 @@ public class ChatMessageDTO {
     private UUID playerId;
     private String playerName;
     private String message;
-    private Instant timestamp;
 }

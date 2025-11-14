@@ -32,8 +32,8 @@ public class MenuController {
     }
 
     @PostMapping("/rooms/{roomId}/join")
-    public void joinRoom(@PathVariable UUID roomId, @RequestBody GamePlayer player) {
-        roomsService.joinRoom(roomId, player);
+    public GamePlayer joinRoom(@PathVariable UUID roomId, @RequestBody GamePlayer player) {
+        return roomsService.joinRoom(roomId, player);
     }
 
     @PostMapping("/rooms/{roomId}/leave")

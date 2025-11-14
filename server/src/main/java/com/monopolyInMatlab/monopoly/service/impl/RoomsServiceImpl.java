@@ -22,8 +22,8 @@ public class RoomsServiceImpl implements RoomsService {
     }
 
     @Override
-    public void joinRoom(UUID roomId, GamePlayer player) {
-        roomsRepository.joinRoom(roomId, player);
+    public GamePlayer joinRoom(UUID roomId, GamePlayer player) {
+        return roomsRepository.joinRoom(roomId, player);
     }
 
     @Override

@@ -10,7 +10,7 @@ import java.util.UUID;
 public interface RoomRepository {
     List<GameRoom> getAllRooms();
     GameRoom createRoom(CreateRoomRequest createRoomRequest);
-    void joinRoom(UUID roomId, GamePlayer player);
+    GamePlayer joinRoom(UUID roomId, GamePlayer player);
     GameRoom findGameRoomById(UUID roomId);
     void saveGameRoom(GameRoom gameRoom);
     void deleteRoom(UUID roomId);

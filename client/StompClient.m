@@ -97,8 +97,8 @@ classdef StompClient < WebSocketClient
 
         function joinRoom(obj, roomId, playerName)
             playerStruct = struct("playerName", playerName);
-            joinRoomDestination = sprintf("/monopoly/room/%d/join", roomId);
-            subscribeToRoomDestination = sprintf("/room/%d", roomId);
+            joinRoomDestination = sprintf("/monopoly/room/%s/join", roomId);
+            subscribeToRoomDestination = sprintf("/room/%s", roomId);
             
             obj.stompSubscribe(subscribeToRoomDestination);
             obj.stompSend(joinRoomDestination, playerStruct);

@@ -29,7 +29,6 @@ public class GameWebsocketController {
         // Note: RoomsService.joinRoom should be called from client before websocket connection
         // This message handler just broadcasts the join event
         Map<String, Object> data = new HashMap<>();
-        data.put("playerId", player.getPlayerId().toString());
         data.put("playerName", player.getPlayerName());
 
         broadcastGameEvent(roomId, "PLAYER_JOINED", data);
@@ -42,6 +41,8 @@ public class GameWebsocketController {
         String playerName = payload.get("playerName");
         String message = payload.get("message");
 
+        System.out.println("Player " + playerName + " sent a message:" + message);
+
         ChatMessage chatMessage = chatService.sendMessage(UUID.fromString(roomId), playerId, playerName, message);
 
         ChatMessageDTO dto = ChatMessageDTO.builder()
@@ -49,10 +50,9 @@ public class GameWebsocketController {
                 .playerId(chatMessage.getPlayerId())
                 .playerName(chatMessage.getPlayerName())
                 .message(chatMessage.getMessage())
-                .timestamp(chatMessage.getTimestamp())
                 .build();
 
-        simpMessagingTemplate.convertAndSend("/monopoly/room/" + roomId, dto);
+        simpMessagingTemplate.convertAndSend("/room/" + roomId, dto);
     }
 
     // Game lifecycle
@@ -341,7 +341,7 @@ public class GameWebsocketController {
                 .data(data)
                 .build();
 
-        simpMessagingTemplate.convertAndSend("/monopoly/room/" + roomId, message);
+        simpMessagingTemplate.convertAndSend("/room/" + roomId, message);
     }
 
     private void broadcastError(String roomId, String errorMessage) {

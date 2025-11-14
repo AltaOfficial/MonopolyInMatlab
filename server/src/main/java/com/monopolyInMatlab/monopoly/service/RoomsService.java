@@ -11,7 +11,7 @@ public interface RoomsService {
 
     GameRoom createRoom(CreateRoomRequest createRoomRequest);
 
-    void joinRoom(UUID roomId, GamePlayer player);
+    GamePlayer joinRoom(UUID roomId, GamePlayer player);
 
     void leaveRoom(UUID roomId, UUID playerId);
 

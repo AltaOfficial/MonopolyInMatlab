@@ -23,7 +23,6 @@ public class WebsocketEventListener {
         System.out.println("Socket disconnected: " + session);
     }
 
-
     @EventListener
     public void handleWebSocketSubscribeListener(SessionSubscribeEvent session) {
         System.out.println("Received a new web socket subscription: " + session.getMessage().getHeaders().toString() + "");

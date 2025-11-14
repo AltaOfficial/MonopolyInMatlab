@@ -47,11 +47,14 @@ public class InMemoryRoomRepository implements RoomRepository {
     }
 
     @Override
-    public void joinRoom(UUID roomId, GamePlayer player) {
+    public GamePlayer joinRoom(UUID roomId, GamePlayer player) {
         GameRoom room = gameRooms.get(roomId);
+        // the player we are getting passed in is not stored in memory yet, here we are doing that
+        GamePlayer gamePlayer = GamePlayer.builder().playerName(player.getPlayerName()).build();
         if (room != null && !room.isStarted()) {
-            room.getGamePlayers().add(GamePlayer.builder().playerName(player.getPlayerName()).build());
+            room.getGamePlayers().add(gamePlayer);
         }
+        return gamePlayer;
     }
 
     @Override

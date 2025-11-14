@@ -12,7 +12,4 @@ public class ChatMessage {
     private final UUID playerId;
     private final String playerName;
     private final String message;
-
-    @Builder.Default
-    private final Instant timestamp = Instant.now();
 }
