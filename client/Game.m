@@ -119,6 +119,10 @@ classdef Game < handle
                 obj.weAreHost = userIsHost;
                 if(userIsHost == true)
                     app.EndTurnButton.Text = "Start Game";
+                    app.EndTurnButton.Enable = "on";
+                else
+                    app.EndTurnButton.Text = "End turn";
+                    app.EndTurnButton.Enable = "off";
                 end
             end
 
@@ -183,6 +187,10 @@ classdef Game < handle
                         % Mark if this is the local player
                         if ~isempty(obj.myPlayerId) && strcmp(newPlayer.playerId, obj.myPlayerId)
                             newPlayer.isClient = true;
+                            % since this player is the client, we need to
+                            % update our app to show its details(money,
+                            % houses, etc.)
+                            obj.app.YourFunds100Label.Text = sprintf("Your Funds: $%d", newPlayer.money);
                         end
                         obj.gamePlayers{i} = newPlayer;
                     end
@@ -195,6 +203,14 @@ classdef Game < handle
                         % Mark if this is the local player
                         if ~isempty(obj.myPlayerId) && strcmp(newPlayer.playerId, obj.myPlayerId)
                             newPlayer.isClient = true;
+                            % since this player is the client, we need to
+                            % update our app to show its details(money,
+                            % properites, etc.)
+                            newPlayer.ownedPropertyPositions = {1};
+                            for i = 1 : length(newPlayer.ownedPropertyPositions)
+                                obj.app.propertiesLabel.Text = [obj.app.propertiesLabel.Text, {sprintf("%s", obj.boardSpaces{i}.name)}];
+                            end
+                            obj.app.YourFunds100Label.Text = sprintf("Your Funds: $%d", newPlayer.money);
                         end
                         obj.gamePlayers{i} = newPlayer;
                     end

@@ -11,7 +11,6 @@ StompClient.getInstance([]);
 % Connect to the websocket server
 StompClient.getInstance("ws://localhost:8000/ws");
 
-% open la main menu
 main_menu();
 
 % HELPFUL LINKS
