@@ -152,7 +152,6 @@ classdef Game < handle
 
         function updateFromServerData(obj, gameRoomData)
             % Update Game state from server GameRoom data
-            disp(gameRoomData);
 
             if(nargin < 1)
                 gameRoomData = webRequest(sprintf("http://localhost:8000/menu/room/%s", obj.roomId)).Body.Data;
@@ -174,9 +173,17 @@ classdef Game < handle
                 % TODO: Update UI to render board spaces
             end
             if isfield(gameRoomData, 'gamePlayers')
-                obj.gamePlayers = {};
-
                 playersData = gameRoomData.gamePlayers;
+
+                % Check if playersData is empty
+                if isempty(playersData)
+                    obj.gamePlayers = {};
+                    obj.Players = obj.gamePlayers;
+                    obj.app.PlayersConnectedLabel.Text = "Players Connected(0): ";
+                    return;
+                end
+
+                obj.gamePlayers = {};
 
                 % Handle both cell array and struct array formats
                 if iscell(playersData)
@@ -192,7 +199,7 @@ classdef Game < handle
                             % houses, etc.)
                             obj.app.YourFunds100Label.Text = sprintf("Your Funds: $%d", newPlayer.money);
                         end
-                        obj.gamePlayers{i} = newPlayer;
+                        obj.gamePlayers{end+1} = newPlayer;
                     end
                 elseif isstruct(playersData)
                     % Handle single struct or struct array
@@ -206,13 +213,19 @@ classdef Game < handle
                             % since this player is the client, we need to
                             % update our app to show its details(money,
                             % properites, etc.)
-                            newPlayer.ownedPropertyPositions = {1};
-                            for i = 1 : length(newPlayer.ownedPropertyPositions)
-                                obj.app.propertiesLabel.Text = [obj.app.propertiesLabel.Text, {sprintf("%s", obj.boardSpaces{i}.name)}];
+                            propertiesText = "";
+                            for j = 1 : length(newPlayer.ownedPropertyPositions)
+                                fprintf("j is: %d\n", j);
+                                fprintf("newPlayer.ownedPropertyPositions{j}: %d\n", newPlayer.ownedPropertyPositions{j});
+                                fprintf("obj.boardSpaces{newPlayer.ownedPropertyPositions{j}}.name: %s\n", obj.boardSpaces{newPlayer.ownedPropertyPositions{j}}.name);
+                                % we need sprintf here so a new line is
+                                % added automatically
+                                propertiesText = [sprintf("%s", obj.boardSpaces{newPlayer.ownedPropertyPositions{j}}.name), propertiesText];
                             end
+                            obj.app.propertiesLabel.Text = propertiesText;
                             obj.app.YourFunds100Label.Text = sprintf("Your Funds: $%d", newPlayer.money);
                         end
-                        obj.gamePlayers{i} = newPlayer;
+                        obj.gamePlayers{end+1} = newPlayer;
                     end
                 end
 
@@ -310,6 +323,11 @@ classdef Game < handle
                 'playerName', msgJson.playerName, ...
                 'message', msgJson.message);
 
+            % Ensure chatHistory is a cell array
+            if isempty(obj.chatHistory) || ~iscell(obj.chatHistory)
+                obj.chatHistory = {};
+            end
+
             obj.chatHistory{end+1} = chatMsg;
             obj.chatMessages = obj.chatHistory;  % Update alias
 
@@ -337,6 +355,7 @@ classdef Game < handle
                     obj.currentPlayerTurnId = data.currentPlayerId;
                     obj.isStarted = true;
                     obj.appendToTextArea(sprintf('Game started! Current player: %s', obj.currentPlayerTurnId));
+                    obj.app.EndTurnButton.Enable = "End turn";
                     % TODO: Update UI - disable lobby controls, enable game controls, show current player
 
                 case 'DICE_ROLLED'

@@ -42,7 +42,7 @@ public class GameServiceImpl implements GameService {
         }
 
         room.setGamePhase(GamePhase.IN_PROGRESS);
-        room.setCurrentPlayerIndex(0);
+        room.setCurrentPlayerIndex(0); // sets the current players turn to be the host
 
         return room;
     }

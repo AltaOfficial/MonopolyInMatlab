@@ -59,8 +59,8 @@ public class GameWebsocketController {
     @MessageMapping("/room/{roomId}/game/start")
     public void startGame(@DestinationVariable String roomId) {
         try {
-            GameRoom room = gameService.initializeGame(UUID.fromString(roomId));
-            room = gameService.startGame(UUID.fromString(roomId));
+            gameService.initializeGame(UUID.fromString(roomId));
+            GameRoom room = gameService.startGame(UUID.fromString(roomId));
 
             Map<String, Object> data = new HashMap<>();
             data.put("currentPlayerIndex", room.getCurrentPlayerIndex());
