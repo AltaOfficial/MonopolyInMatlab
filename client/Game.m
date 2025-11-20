@@ -333,6 +333,9 @@ classdef Game < handle
 
             % Append to TextArea
             obj.appendToTextArea(sprintf('%s: %s', msgJson.playerName, msgJson.message));
+
+            % scroll textarea to the bottom
+            scroll(obj.app.TextArea, "bottom");
         end
 
         function handleGameEvent(obj, msgJson)
@@ -347,6 +350,8 @@ classdef Game < handle
                 obj.updateFromServerData(response.Body.Data);
             end
 
+            % perform actions on updated data
+
             fprintf('[GAME EVENT] %s', messageType);
 
             switch messageType
@@ -354,11 +359,22 @@ classdef Game < handle
                     obj.gamePhase = 'IN_PROGRESS';
                     obj.currentPlayerTurnId = data.currentPlayerId;
                     obj.isStarted = true;
-                    obj.appendToTextArea(sprintf('Game started! Current player: %s', obj.currentPlayerTurnId));
-                    obj.app.EndTurnButton.Enable = "End turn";
+                    obj.appendToTextArea(sprintf('Host has started the game! no more players can connect, and if someone leaves the game ends'));
+
+                    if(obj.weAreHost == true) % host always goes first
+                        obj.app.EndTurnButton.Text = "Roll";
+                        obj.app.EndTurnButton.Enable = "on";
+                    end
+
+                    obj.app.CurrentTurnGamenotstartedLabel.Text = sprintf("Current Turn: %s", obj.getCurrentPlayer().playerName);
+                    
                     % TODO: Update UI - disable lobby controls, enable game controls, show current player
 
                 case 'DICE_ROLLED'
+                    if(obj.isMyTurn() == true)
+                        obj.app.EndTurnButton.Text = "End turn";
+                        obj.app.EndTurnButton.Enable = "on";
+                    end
                     obj.lastDiceRoll = data.dice;
                     obj.currentDice = obj.lastDiceRoll;  % Update alias
                     obj.appendToTextArea(sprintf('Player rolled: [%d, %d]', data.dice(1), data.dice(2)));
@@ -367,6 +383,13 @@ classdef Game < handle
                 case 'PLAYER_MOVED'
                     playerId = data.playerId;
                     player = obj.getPlayerById(playerId);
+                    if(obj.isMyTurn() == true)
+                        obj.app.CurrentSpotOptionsLabel.Enable = "on";
+                        if(obj.canBuyProperty && (obj.getPropertyAtPosition().spaceType == "PROPERTY" || obj.getPropertyAtPosition().spaceType == "RAILROAD" || obj.getPropertyAtPosition().spaceType == "UTILITY"))
+                            obj.app.BuyPropertyHereButton.Enable = "on";
+                        end
+
+                    end
                     if ~isempty(player)
                         player.position = data.newPosition;
                         player.money = data.money;
@@ -427,6 +450,29 @@ classdef Game < handle
                 case 'TURN_CHANGED'
                     obj.currentPlayerTurnId = data.currentPlayerId;
                     obj.doublesCount = 0;
+                    if(obj.isMyTurn() == true)
+                        obj.app.EndTurnButton.Text = "Roll";
+                        obj.app.EndTurnButton.Enable = "on";
+
+                        obj.app.OptionsLabel.Enable = "on";
+                        obj.app.BuyahouseButton = "on";
+                        obj.app.BuyahotelButton = "on";
+                        obj.app.SellAPropertyButton = "on";
+                        if((obj.getMyPlayer().inJail == true) && (obj.getMyPlayer().getOutOfJailCards > 0))
+                            obj.app.UseGetoutofjailfreecardButton.Enable = "on";
+                        end
+                    else
+                        obj.app.EndTurnButton.Enable = "off";
+
+                        obj.app.OptionsLabel.Enable = "off";
+                        obj.app.BuyahouseButton = "off";
+                        obj.app.BuyahotelButton = "off";
+                        obj.app.CurrentSpotOptionsLabel = "off";
+                        obj.app.BuyPropertyHereButton = "off";
+                        obj.app.UseGetoutofjailfreecardButton = "off";
+                        obj.app.SellAPropertyButton = "off";
+                    end
+                    obj.app.CurrentTurnGamenotstartedLabel.Text = sprintf("Current Turn: %s", obj.getCurrentPlayer().playerName);
                     obj.appendToTextArea(sprintf('Turn changed to: %s', obj.currentPlayerTurnId));
                     % TODO: Update UI - highlight current player, enable/disable controls based on turn
 
@@ -484,6 +530,8 @@ classdef Game < handle
                 otherwise
                     obj.appendToTextArea(sprintf('Unhandled game event: %s', messageType));
             end
+            % scroll textarea to the bottom
+            scroll(obj.app.TextArea, "bottom");
         end
 
         %% ===== CHAT METHODS =====
