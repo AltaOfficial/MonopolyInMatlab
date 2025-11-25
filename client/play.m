@@ -3,6 +3,7 @@ import StompClient.*; % the websocket client class
 import SaveWebsocketsLibrary.*; % function to install websocket library
 
 clc;
+clear;
 SaveWebsocketsLibrary();
 
 % Clear any previous websocket connections

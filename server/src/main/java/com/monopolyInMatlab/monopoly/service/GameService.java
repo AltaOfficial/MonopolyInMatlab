@@ -1,7 +1,6 @@
 package com.monopolyInMatlab.monopoly.service;
 
 import com.monopolyInMatlab.monopoly.domain.Card;
-import com.monopolyInMatlab.monopoly.domain.GamePlayer;
 import com.monopolyInMatlab.monopoly.domain.GameRoom;
 import com.monopolyInMatlab.monopoly.dto.TradeOfferDTO;
 
@@ -9,7 +8,7 @@ import java.util.UUID;
 
 public interface GameService {
     // Game lifecycle
-    GameRoom initializeGame(UUID roomId);
+    void initializeGame(UUID roomId);
     GameRoom startGame(UUID roomId);
 
     // Turn actions

@@ -9,7 +9,7 @@ classdef Player < handle
         % Game fields
         position = 0       % Board position (0-39, 0-indexed to match server)
         money = 1500       % Current money
-        ownedPropertyPositions  % Array of integers (property positions)
+        ownedPropertyPositions = []  % Array of integers (property positions)
         inJail = false     % Jail status
         jailTurns = 0      % Turns spent in jail
         getOutOfJailCards = 0   % Get Out of Jail Free cards
@@ -56,7 +56,7 @@ classdef Player < handle
                 obj.money = playerData.money;
             end
             if isfield(playerData, 'ownedPropertyPositions')
-                obj.ownedPropertyPositions = playerData.ownedPropertyPositions;
+                obj.ownedPropertyPositions = [playerData.ownedPropertyPositions];
             end
             if isfield(playerData, 'inJail')
                 obj.inJail = playerData.inJail;
@@ -88,7 +88,11 @@ classdef Player < handle
 
         function addProperty(obj, propertyObj)
             % Add property to owned properties (client-side)
-            obj.ownedProperties(end+1) = propertyObj;
+            if isempty(obj.ownedProperties)
+                obj.ownedProperties = propertyObj;
+            else
+                obj.ownedProperties(end+1) = propertyObj;
+            end
             propertyObj.owner = obj;
 
             % Add position to ownedPropertyPositions (matches server)

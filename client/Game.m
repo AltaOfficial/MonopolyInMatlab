@@ -56,7 +56,7 @@ classdef Game < handle
                 % New instance requested with app parameter and roomId
                 if isempty(game)
                     % Getting the room details from the server
-                    roomDetails = [];
+                    
 
                     response = webRequest(sprintf("http://localhost:8000/menu/room/%s", roomId));
                     if ~isempty(response.Body.Data)
@@ -84,11 +84,8 @@ classdef Game < handle
                         error("failed to get room details from server");
                     end
                 end
-            else
-                % Just getting existing instance
-                if isempty(game)
+            elseif isempty(game)
                     error('Game instance not initialized. Call Game.gameInstance(app, roomId, userIsHost, myPlayerId) first.');
-                end
             end
 
             obj = game;
@@ -148,6 +145,9 @@ classdef Game < handle
         function setStompClient(obj, stompClient)
             % Set the StompClient reference after connection is established
             obj.stompClient = stompClient;
+            % Create reverse reference so StompClient can access the
+            % GameInstance
+            stompClient.setGameInstance(obj);
         end
 
         function updateFromServerData(obj, gameRoomData)
@@ -183,8 +183,6 @@ classdef Game < handle
                     return;
                 end
 
-                obj.gamePlayers = {};
-
                 % Handle both cell array and struct array formats
                 if iscell(playersData)
                     numPlayers = length(playersData);
@@ -215,17 +213,67 @@ classdef Game < handle
                             % properites, etc.)
                             propertiesText = "";
                             for j = 1 : length(newPlayer.ownedPropertyPositions)
-                                fprintf("j is: %d\n", j);
-                                fprintf("newPlayer.ownedPropertyPositions{j}: %d\n", newPlayer.ownedPropertyPositions{j});
-                                fprintf("obj.boardSpaces{newPlayer.ownedPropertyPositions{j}}.name: %s\n", obj.boardSpaces{newPlayer.ownedPropertyPositions{j}}.name);
-                                % we need sprintf here so a new line is
-                                % added automatically
-                                propertiesText = [sprintf("%s", obj.boardSpaces{newPlayer.ownedPropertyPositions{j}}.name), propertiesText];
+                                % ownedPropertyPositions is a regular array (use parentheses)
+                                % boardSpaces is a cell array (use curly braces)
+                                % +1 for MATLAB 1-indexing
+                                propertiesText = sprintf("%s\n%s", propertiesText, obj.boardSpaces{newPlayer.ownedPropertyPositions(j) + 1}.name);
                             end
                             obj.app.propertiesLabel.Text = propertiesText;
                             obj.app.YourFunds100Label.Text = sprintf("Your Funds: $%d", newPlayer.money);
                         end
-                        obj.gamePlayers{end+1} = newPlayer;
+                        fprintf("new player id: %s\n", newPlayer.playerId);
+                        disp(obj.gamePlayers);
+                        oldPlayer = obj.getPlayerById(newPlayer.playerId);
+                        fprintf("----\n\n");
+                        disp(oldPlayer);
+                        fprintf("----\n\n");
+                        if(~isempty(oldPlayer))
+                            playerIndex = obj.getPlayerIndexById(newPlayer.playerId);
+                            if(obj.isStarted == true)
+                                % update player position only when game has
+                                % already started
+                                switch(playerIndex)
+                                    % updating position
+                                    case 1 % player is dog
+                                        obj.app.(['dog_' num2str(oldPlayer.position)]).Visible = "off";
+                                        obj.app.dog_jail_10.Visible = "off";
+                                        if(newPlayer.position == 10 && newPlayer.inJail == true)
+                                            obj.app.dog_jail_10.Visible = "on";
+                                        else
+                                            obj.app.(['dog_' num2str(newPlayer.position)]).Visible = "on";
+                                        end
+                                    case 2 % player is battleship
+                                        obj.app.(['battleship_' num2str(oldPlayer.position)]).Visible = "off";
+                                        obj.app.battleship_jail_10.Visible = "off";
+                                        if(newPlayer.position == 10 && newPlayer.inJail == true)
+                                            obj.app.battleship_jail_10.Visible = "on";
+                                        else
+                                            obj.app.(['battleship_' num2str(newPlayer.position)]).Visible = "on";
+                                        end
+                                    case 3 % player is hat
+                                        obj.app.(['hat_' num2str(oldPlayer.position)]).Visible = "off";
+                                        obj.app.hat_jail_10.Visible = "off";
+                                        if(newPlayer.position == 10 && newPlayer.inJail == true)
+                                            obj.app.hat_jail_10.Visible = "on";
+                                        else
+                                            obj.app.(['hat_' num2str(newPlayer.position)]).Visible = "on";
+                                        end
+                                    case 4 % player is car
+                                        obj.app.(['car_' num2str(oldPlayer.position)]).Visible = "off";
+                                        obj.app.car_jail_10.Visible = "off";
+                                        if(newPlayer.position == 10 && newPlayer.inJail == true)
+                                            obj.app.car_jail_10.Visible = "on";
+                                        else
+                                            obj.app.(['car_' num2str(newPlayer.position)]).Visible = "on";
+                                        end
+                                end
+                            end
+                            % update old player with new
+                            obj.gamePlayers{playerIndex} = newPlayer;
+                        else
+                            disp("old player is empty");
+                            obj.gamePlayers{end+1} = newPlayer;
+                        end
                     end
                 end
 
@@ -299,20 +347,17 @@ classdef Game < handle
 
         function processWebsocketMessage(obj, msgJson)
             % Main message router - routes by messageType
-            try
-                if isfield(msgJson, 'messageType')
-                    messageType = msgJson.messageType;
-                    disp(messageType);
+            
+            if isfield(msgJson, 'messageType')
+                messageType = msgJson.messageType;
+                disp(messageType);
 
-                    if strcmp(messageType, 'CHAT_MESSAGE')
-                        obj.handleChatMessage(msgJson);
-                    else
-                        % All other message types are game events
-                        obj.handleGameEvent(msgJson);
-                    end
+                if strcmp(messageType, 'CHAT_MESSAGE')
+                    obj.handleChatMessage(msgJson);
+                else
+                    % All other message types are game events
+                    obj.handleGameEvent(msgJson);
                 end
-            catch ME
-                fprintf('Error processing WebSocket message: %s\n', ME.message);
             end
         end
 
@@ -366,6 +411,19 @@ classdef Game < handle
                         obj.app.EndTurnButton.Enable = "on";
                     end
 
+                    for i=1 : length(obj.gamePlayers)
+                        switch(i)
+                            case 1
+                                obj.app.dog_0.Visible = "on";
+                            case 2
+                                obj.app.battleship_0.Visible = "on";
+                            case 3
+                                obj.app.hat_0.Visible = "on";
+                            case 4
+                                obj.app.car_0.Visible = "on";
+                        end
+                    end
+
                     obj.app.CurrentTurnGamenotstartedLabel.Text = sprintf("Current Turn: %s", obj.getCurrentPlayer().playerName);
                     
                     % TODO: Update UI - disable lobby controls, enable game controls, show current player
@@ -385,15 +443,19 @@ classdef Game < handle
                     player = obj.getPlayerById(playerId);
                     if(obj.isMyTurn() == true)
                         obj.app.CurrentSpotOptionsLabel.Enable = "on";
-                        if(obj.canBuyProperty && (obj.getPropertyAtPosition().spaceType == "PROPERTY" || obj.getPropertyAtPosition().spaceType == "RAILROAD" || obj.getPropertyAtPosition().spaceType == "UTILITY"))
+                        propertyAtPlayerPosition = obj.getPropertyAtPosition(player.position);
+                        if(obj.canBuyProperty() && (propertyAtPlayerPosition.type == "PROPERTY" || propertyAtPlayerPosition.type == "RAILROAD" || propertyAtPlayerPosition.type == "UTILITY"))
                             obj.app.BuyPropertyHereButton.Enable = "on";
+                        end
+                        if(propertyAtPlayerPosition.type == "CHANCE" || propertyAtPlayerPosition.type == "COMMUNITY_CHEST")
+                            obj.app.EndTurnButton.Text = "Draw Card";
                         end
 
                     end
                     if ~isempty(player)
                         player.position = data.newPosition;
                         player.money = data.money;
-                        obj.appendToTextArea(sprintf('%s moved to position %d', player.playerName, data.newPosition));
+                        obj.appendToTextArea(sprintf('%s moved to %s', player.playerName, obj.getPropertyAtPosition(player.position).name));
                     end
                     % TODO: Update UI - animate player token movement, update player money display
 
@@ -455,9 +517,12 @@ classdef Game < handle
                         obj.app.EndTurnButton.Enable = "on";
 
                         obj.app.OptionsLabel.Enable = "on";
-                        obj.app.BuyahouseButton = "on";
-                        obj.app.BuyahotelButton = "on";
-                        obj.app.SellAPropertyButton = "on";
+                        obj.app.BuyahouseButton.Enable = "on";
+                        obj.app.BuyahotelButton.Enable = "on";
+                        obj.app.SellAPropertyButton.Enable = "on";
+                        if(obj.getMyPlayer().money >= 50)
+                            obj.app.SellAPropertyButton.Enable = "on";
+                        end
                         if((obj.getMyPlayer().inJail == true) && (obj.getMyPlayer().getOutOfJailCards > 0))
                             obj.app.UseGetoutofjailfreecardButton.Enable = "on";
                         end
@@ -465,12 +530,12 @@ classdef Game < handle
                         obj.app.EndTurnButton.Enable = "off";
 
                         obj.app.OptionsLabel.Enable = "off";
-                        obj.app.BuyahouseButton = "off";
-                        obj.app.BuyahotelButton = "off";
-                        obj.app.CurrentSpotOptionsLabel = "off";
-                        obj.app.BuyPropertyHereButton = "off";
-                        obj.app.UseGetoutofjailfreecardButton = "off";
-                        obj.app.SellAPropertyButton = "off";
+                        obj.app.BuyahouseButton.Enable = "off";
+                        obj.app.BuyahotelButton.Enable = "off";
+                        obj.app.CurrentSpotOptionsLabel.Enable = "off";
+                        obj.app.BuyPropertyHereButton.Enable = "off";
+                        obj.app.UseGetoutofjailfreecardButton.Enable = "off";
+                        obj.app.SellAPropertyButton.Enable = "off";
                     end
                     obj.app.CurrentTurnGamenotstartedLabel.Text = sprintf("Current Turn: %s", obj.getCurrentPlayer().playerName);
                     obj.appendToTextArea(sprintf('Turn changed to: %s', obj.currentPlayerTurnId));
@@ -572,6 +637,13 @@ classdef Game < handle
             obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/roll', obj.roomId), payload);
         end
 
+        function requestDrawCard(obj, deckType)
+            % deckType: 'COMMUNITY' or 'CHANCE'
+            if isempty(obj.stompClient), warning('StompClient not connected'); return; end
+            payload = struct('playerId', obj.getMyPlayer().playerId, 'deckType', deckType);
+            obj.stompClient.stompSend(sprintf('/monopoly/room/%s/game/drawCard', obj.roomId), payload);
+        end
+
         function requestBuyProperty(obj, position)
             if isempty(obj.stompClient), warning('StompClient not connected'); return; end
             payload = struct('playerId', obj.getMyPlayer().playerId, 'position', position);
@@ -642,18 +714,46 @@ classdef Game < handle
                     return;
                 end
             end
+            % If not found by isClient flag, try matching by playerId
+            if ~isempty(obj.myPlayerId)
+                for i = 1:length(obj.gamePlayers)
+                    if strcmp(obj.gamePlayers{i}.playerId, obj.myPlayerId)
+                        obj.gamePlayers{i}.isClient = true; % Mark it for future calls
+                        player = obj.gamePlayers{i};
+                        return;
+                    end
+                end
+            end
+            fprintf('Warning: Could not find local player. myPlayerId=%s, numPlayers=%d\n', ...
+                string(obj.myPlayerId), length(obj.gamePlayers));
             player = [];
         end
 
         function player = getPlayerById(obj, playerId)
+            fprintf("player id to search for: %s\n", playerId);
             % Find player by ID
             for i = 1:length(obj.gamePlayers)
+                
+                fprintf("checking if these match: %s and %s\n", playerId, obj.gamePlayers{i}.playerId);
                 if strcmp(obj.gamePlayers{i}.playerId, playerId)
                     player = obj.gamePlayers{i};
+                    fprintf("returned player\n");
                     return;
                 end
             end
             player = [];
+        end
+
+        function playerIndex = getPlayerIndexById(obj, playerId)
+            % Find playerIndex by ID
+            for i = 1:length(obj.gamePlayers)
+                
+                if strcmp(obj.gamePlayers{i}.playerId, playerId)
+                    playerIndex = i;
+                    return;
+                end
+            end
+            playerIndex = [];
         end
 
         function isTurn = isMyTurn(obj)
@@ -679,8 +779,13 @@ classdef Game < handle
                 return;
             end
 
-            prop = obj.boardSpaces{myPlayer.position + 1};  % MATLAB 1-indexing
-            can = isempty(prop.owner) && myPlayer.canAfford(prop.purchasePrice);
+            space = obj.boardSpaces{myPlayer.position + 1};  % MATLAB 1-indexing
+            % Check if this is actually a Property (not a BoardSpace like GO, Jail, etc.)
+            if isa(space, 'Property')
+                can = isempty(space.owner) && myPlayer.canAfford(space.purchasePrice);
+            else
+                can = false;
+            end
         end
 
         function monopolies = getMyMonopolies(obj)

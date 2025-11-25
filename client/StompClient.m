@@ -3,6 +3,10 @@ classdef StompClient < WebSocketClient
     %   This class extends the WebSocketClient class so we don't need to manually handle
     %   STOMP message formatting each time, these methods automatically take care of it.
 
+    properties(Access = private)
+        gameInstance;
+    end
+
     methods(Static)
         function obj = getInstance(connectionUrl)
             persistent websocketConnection;
@@ -53,6 +57,10 @@ classdef StompClient < WebSocketClient
     end
 
     methods
+        function setGameInstance(obj, gameInstance)
+            obj.gameInstance = gameInstance;
+        end
+
         function stompConnect(obj)
             % This function connects to the websocket using the formatting stomp likes
             % we will connect using stomp version 1.2, so we can have
@@ -110,7 +118,7 @@ classdef StompClient < WebSocketClient
 
     % these functions need to be defined as stated in the superclass
     methods(Access = protected)
-        function onOpen(obj, message)
+        function onOpen(~, message)
             % This function simply displays the message received
             fprintf('%s\n', message);
         end
@@ -119,7 +127,7 @@ classdef StompClient < WebSocketClient
             % This function parses STOMP messages and routes to Game singleton
             fprintf('Message received:\n%s\n', message);
 
-            try
+            
                 % Parse STOMP frame to extract JSON body
                 lines = splitlines(message);
 
@@ -149,29 +157,25 @@ classdef StompClient < WebSocketClient
                             % Parse JSON and route to Game
                             if ~isempty(jsonBody)
                                 msgJson = jsondecode(jsonBody);
-                                game = Game.gameInstance();
-                                game.processWebsocketMessage(msgJson);
+                                obj.gameInstance.processWebsocketMessage(msgJson);
                             end
                         end
                     end
                 end
-            catch ME
-                fprintf('Error processing message: %s\n', ME.message);
-            end
         end
         
-        function onBinaryMessage(obj, bytearray)
+        function onBinaryMessage(~, bytearray)
             % This function simply displays the message received
             fprintf('Binary message received:\n');
             fprintf('Array length: %d\n', length(bytearray));
         end
         
-        function onError(obj, message)
+        function onError(~, message)
             % This function simply displays the message received
             fprintf('Error: %s\n', message);
         end
         
-        function onClose(obj, message)
+        function onClose(~, message)
             % This function simply displays the message received
             fprintf('%s\n', message);
         end

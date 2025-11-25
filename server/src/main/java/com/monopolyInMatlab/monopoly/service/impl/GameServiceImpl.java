@@ -17,7 +17,7 @@ public class GameServiceImpl implements GameService {
     private final Random random = new Random();
 
     @Override
-    public GameRoom initializeGame(UUID roomId) {
+    public void initializeGame(UUID roomId) {
         GameRoom room = roomRepository.findGameRoomById(roomId);
         if (room == null) {
             throw new IllegalArgumentException("Room not found");
@@ -30,7 +30,6 @@ public class GameServiceImpl implements GameService {
         }
 
         roomRepository.saveGameRoom(room);
-        return room;
     }
 
     @Override
