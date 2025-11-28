@@ -503,11 +503,92 @@ classdef Game < handle
                 case 'RENT_PAID'
                     obj.appendToTextArea(sprintf('Rent paid: $%d from %s to %s', ...
                         data.amount, data.payerId, data.payeeId));
-                    % TODO: Update UI - show transaction animation, update both players' money
 
                 case 'CARD_DRAWN'
                     obj.appendToTextArea(sprintf('Card drawn: %s', data.description));
-                    % TODO: Update UI - display card popup with description and action
+                    if(obj.isMyTurn() == true)
+                        obj.app.EndTurnButton.Text = "End turn";
+                        obj.app.EndTurnButton.Enable = "on";
+                        obj.app.card_drawn_panel.Visible = "on";
+
+                        % Display the appropriate card image based on description
+                        description = data.description;
+                        switch description
+                            % ===== CHANCE CARDS =====
+                            case "Go to Jail"
+                                if strcmp(data.cardType, 'CHANCE')
+                                    obj.app.card_image.ImageSource = 'Chance1.png';
+                                else
+                                    obj.app.card_image.ImageSource = 'CommunityChest11.png';
+                                end
+                            case "Advance to St. Charles Place"
+                                obj.app.card_image.ImageSource = 'Chance2.png';
+                            case "Advance token to nearest Railroad"
+                                obj.app.card_image.ImageSource = 'Chance3.png';
+                            case "Take a trip to Reading Railroad"
+                                obj.app.card_image.ImageSource = 'Chance4.png';
+                            case "Your building loan matures (Collect $150)"
+                                obj.app.card_image.ImageSource = 'Chance5.png';
+                            case "Make general repairs on all your property ($25 per house, $100 per hotel)"
+                                obj.app.card_image.ImageSource = 'Chance6.png';
+                            case "You have been elected Chairman of the Board (Pay each player $50)"
+                                obj.app.card_image.ImageSource = 'Chance8.png';
+                            case "Advance to Go (Collect $200)"
+                                if strcmp(data.cardType, 'CHANCE')
+                                    obj.app.card_image.ImageSource = 'Chance9.png';
+                                else
+                                    obj.app.card_image.ImageSource = 'CommunityChest16.png';
+                                end
+                            case "Go Back 3 Spaces"
+                                obj.app.card_image.ImageSource = 'Chance10.png';
+                            case "Bank pays you dividend of $50"
+                                obj.app.card_image.ImageSource = 'Chance11.png';
+                            case "Advance to Illinois Avenue"
+                                obj.app.card_image.ImageSource = 'Chance12.png';
+                            case "Advance token to nearest Utility"
+                                obj.app.card_image.ImageSource = 'Chance13.png';
+                            case "Take a walk on the Boardwalk"
+                                obj.app.card_image.ImageSource = 'Chance14.png';
+                            case "Pay poor tax of $15"
+                                obj.app.card_image.ImageSource = 'Chance15.png';
+                            case "Get Out of Jail Free"
+                                if strcmp(data.cardType, 'CHANCE')
+                                    obj.app.card_image.ImageSource = 'Chance16.png';
+                                else
+                                    obj.app.card_image.ImageSource = 'CommunityChest7.png';
+                                end
+
+                            % ===== COMMUNITY CHEST CARDS =====
+                            case "Bank error in your favor (Collect $200)"
+                                obj.app.card_image.ImageSource = 'CommunityChest1.png';
+                            case "Doctor's fees (Pay $50)"
+                                obj.app.card_image.ImageSource = 'CommunityChest2.png';
+                            case "From sale of stock you get $50"
+                                obj.app.card_image.ImageSource = 'CommunityChest10.png';
+                            case "Grand Opera Night (Collect $50 from every player)"
+                                obj.app.card_image.ImageSource = 'CommunityChest3.png';
+                            case "Holiday Fund matures (Collect $100)"
+                                obj.app.card_image.ImageSource = 'CommunityChest4.png';
+                            case "Income tax refund (Collect $20)"
+                                obj.app.card_image.ImageSource = 'CommunityChest5.png';
+                            case "It is your birthday (Collect $10 from every player)"
+                                obj.app.card_image.ImageSource = 'CommunityChest8.png';
+                            case "Life insurance matures (Collect $100)"
+                                obj.app.card_image.ImageSource = 'CommunityChest12.png';
+                            case "Hospital fees (Pay $100)"
+                                obj.app.card_image.ImageSource = 'CommunityChest14.png';
+                            case "School fees (Pay $150)"
+                                obj.app.card_image.ImageSource = 'CommunityChest6.png';
+                            case "Receive $25 consultancy fee"
+                                obj.app.card_image.ImageSource = 'CommunityChest6.png';
+                            case "You are assessed for street repairs ($40 per house, $115 per hotel)"
+                                obj.app.card_image.ImageSource = 'CommunityChest9.png';
+                            case "You have won second prize in a beauty contest (Collect $10)"
+                                obj.app.card_image.ImageSource = 'CommunityChest15.png';
+                            case "You inherit $100"
+                                obj.app.card_image.ImageSource = 'CommunityChest13.png';
+                        end
+                    end
 
                 case 'TURN_CHANGED'
                     obj.currentPlayerTurnId = data.currentPlayerId;
@@ -587,6 +668,11 @@ classdef Game < handle
                         end
                     end
                     % TODO: Update UI - update jail status indicator for player
+
+                case 'PLAYER_GOING_BANKRUPT'
+                    if obj.isMyTurn() == true
+                        
+                    end
 
                 case 'ERROR'
                     obj.appendToTextArea(sprintf('[ERROR] %s', data.error));
@@ -730,14 +816,11 @@ classdef Game < handle
         end
 
         function player = getPlayerById(obj, playerId)
-            fprintf("player id to search for: %s\n", playerId);
             % Find player by ID
             for i = 1:length(obj.gamePlayers)
                 
-                fprintf("checking if these match: %s and %s\n", playerId, obj.gamePlayers{i}.playerId);
                 if strcmp(obj.gamePlayers{i}.playerId, playerId)
                     player = obj.gamePlayers{i};
-                    fprintf("returned player\n");
                     return;
                 end
             end
