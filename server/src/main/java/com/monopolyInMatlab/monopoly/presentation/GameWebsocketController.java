@@ -96,6 +96,9 @@ public class GameWebsocketController {
 
             broadcastGameEvent(roomId, "PLAYER_MOVED", moveData);
 
+            // Check if player needs to liquidate assets to pay debt
+            checkAndBroadcastLiquidationRequired(room, roomId);
+
         } catch (Exception e) {
             broadcastError(roomId, "Roll dice failed: " + e.getMessage());
         }
@@ -329,8 +332,49 @@ public class GameWebsocketController {
             data.put("description", card.getDescription());
 
             broadcastGameEvent(roomId, "CARD_DRAWN", data);
+
+            // Check if card action requires liquidation
+            GameRoom room = gameService.getGameRoom(UUID.fromString(roomId));
+            checkAndBroadcastLiquidationRequired(room, roomId);
         } catch (Exception e) {
             broadcastError(roomId, "Draw card failed: " + e.getMessage());
+        }
+    }
+
+    // Debt payment handling
+    @MessageMapping("/room/{roomId}/game/payOffDebt")
+    public void payOffDebt(@DestinationVariable String roomId, @Payload PayOffDebtRequest request) {
+        try {
+            gameService.payOffDebt(
+                UUID.fromString(roomId),
+                request.getPlayerId(),
+                request.getHousesToSell(),
+                request.getHotelsToSell(),
+                request.getPropertiesToMortgage(),
+                request.getCreditorId(),
+                request.getAmountOwed()
+            );
+
+            // Get updated game state
+            GameRoom room = gameService.getGameRoom(UUID.fromString(roomId));
+            GamePlayer player = room.getPlayerById(request.getPlayerId());
+
+            // Clear pending debt
+            room.clearPendingDebt();
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("playerId", request.getPlayerId().toString());
+            data.put("playerMoney", player.getMoney());
+            data.put("amountPaid", request.getAmountOwed());
+            if (request.getCreditorId() != null) {
+                GamePlayer creditor = room.getPlayerById(request.getCreditorId());
+                data.put("creditorId", request.getCreditorId().toString());
+                data.put("creditorMoney", creditor.getMoney());
+            }
+
+            broadcastGameEvent(roomId, "DEBT_PAID", data);
+        } catch (Exception e) {
+            broadcastError(roomId, "Pay off debt failed: " + e.getMessage());
         }
     }
 
@@ -349,5 +393,66 @@ public class GameWebsocketController {
         data.put("error", errorMessage);
 
         broadcastGameEvent(roomId, "ERROR", data);
+    }
+
+    private void checkAndBroadcastLiquidationRequired(GameRoom room, String roomId) {
+        if (room.getPendingDebtAmount() != null && room.getPendingDebtPlayerId() != null) {
+            GamePlayer debtor = room.getPlayerById(room.getPendingDebtPlayerId());
+
+            // Build list of liquidation assets
+            java.util.List<LiquidationAsset> assets = new java.util.ArrayList<>();
+
+            for (int position : debtor.getOwnedPropertyPositions()) {
+                BoardSpace space = room.getBoardSpaces().get(position);
+
+                if (space instanceof PropertySpace) {
+                    PropertySpace prop = (PropertySpace) space;
+
+                    // Add houses if any
+                    if (prop.getHousesBuilt() > 0) {
+                        assets.add(new LiquidationAsset("HOUSE", position, prop.getName(),
+                                                        prop.getHouseCost() / 2, prop.getHousesBuilt()));
+                    }
+
+                    // Add hotel if any
+                    if (prop.isHasHotel()) {
+                        assets.add(new LiquidationAsset("HOTEL", position, prop.getName(),
+                                                        prop.getHotelCost() / 2, 1));
+                    }
+
+                    // Add property for mortgaging (if not already mortgaged and no buildings)
+                    if (prop.canMortgage()) {
+                        assets.add(new LiquidationAsset("PROPERTY", position, prop.getName(),
+                                                        prop.getMortgageValue(), 1));
+                    }
+                } else if (space instanceof RailroadSpace) {
+                    RailroadSpace rr = (RailroadSpace) space;
+                    if (rr.canMortgage()) {
+                        assets.add(new LiquidationAsset("RAILROAD", position, rr.getName(),
+                                                        rr.getMortgageValue(), 1));
+                    }
+                } else if (space instanceof UtilitySpace) {
+                    UtilitySpace util = (UtilitySpace) space;
+                    if (util.canMortgage()) {
+                        assets.add(new LiquidationAsset("UTILITY", position, util.getName(),
+                                                        util.getMortgageValue(), 1));
+                    }
+                }
+            }
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("playerId", room.getPendingDebtPlayerId().toString());
+            data.put("amountOwed", room.getPendingDebtAmount());
+            data.put("currentMoney", debtor.getMoney());
+            data.put("reason", room.getPendingDebtReason());
+            if (room.getPendingDebtCreditorId() != null) {
+                GamePlayer creditor = room.getPlayerById(room.getPendingDebtCreditorId());
+                data.put("creditorId", room.getPendingDebtCreditorId().toString());
+                data.put("creditorName", creditor.getPlayerName());
+            }
+            data.put("assets", assets);
+
+            broadcastGameEvent(roomId, "LIQUIDATION_REQUIRED", data);
+        }
     }
 }

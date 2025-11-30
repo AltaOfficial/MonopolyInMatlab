@@ -146,8 +146,8 @@ public class GameServiceImpl implements GameService {
         if (player.subtractMoney(rent)) {
             owner.addMoney(rent);
         } else {
-            // Player can't afford rent - bankruptcy
-            handleBankruptcy(room, player, owner);
+            // Player can't afford rent - check networth
+            handleInsufficientFunds(room, player, rent, owner, "rent payment");
         }
     }
 
@@ -180,8 +180,8 @@ public class GameServiceImpl implements GameService {
     private void handleTaxLanding(GameRoom room, GamePlayer player, SpecialSpace space) {
         int taxAmount = space.getTaxAmount();
         if (!player.subtractMoney(taxAmount)) {
-            // Bankruptcy to bank
-            handleBankruptcy(room, player, null);
+            // Player can't afford tax - check networth
+            handleInsufficientFunds(room, player, taxAmount, null, "tax payment");
         }
     }
 
@@ -319,6 +319,63 @@ public class GameServiceImpl implements GameService {
     }
 
     @Override
+    public void sellHouse(UUID roomId, UUID playerId, int position) {
+        GameRoom room = getGameRoom(roomId);
+        GamePlayer player = room.getPlayerById(playerId);
+        BoardSpace space = room.getBoardSpaces().get(position);
+
+        if (!(space instanceof PropertySpace)) {
+            throw new IllegalStateException("Can only sell houses from properties");
+        }
+
+        PropertySpace prop = (PropertySpace) space;
+
+        if (!prop.getOwnerId().equals(playerId)) {
+            throw new IllegalStateException("You don't own this property");
+        }
+
+        if (prop.getHousesBuilt() == 0) {
+            throw new IllegalStateException("No houses to sell on this property");
+        }
+
+        // Sell house for 50% of build cost
+        int refundAmount = prop.getHouseCost() / 2;
+        prop.setHousesBuilt(prop.getHousesBuilt() - 1);
+        player.addMoney(refundAmount);
+        room.returnHouse();
+        player.setTotalHouses(player.getTotalHouses() - 1);
+    }
+
+    @Override
+    public void sellHotel(UUID roomId, UUID playerId, int position) {
+        GameRoom room = getGameRoom(roomId);
+        GamePlayer player = room.getPlayerById(playerId);
+        BoardSpace space = room.getBoardSpaces().get(position);
+
+        if (!(space instanceof PropertySpace)) {
+            throw new IllegalStateException("Can only sell hotels from properties");
+        }
+
+        PropertySpace prop = (PropertySpace) space;
+
+        if (!prop.getOwnerId().equals(playerId)) {
+            throw new IllegalStateException("You don't own this property");
+        }
+
+        if (!prop.isHasHotel()) {
+            throw new IllegalStateException("No hotel to sell on this property");
+        }
+
+        // Sell hotel for 50% of build cost
+        int refundAmount = prop.getHotelCost() / 2;
+        prop.setHasHotel(false);
+        prop.setHousesBuilt(0);  // Hotel is removed completely, not downgraded
+        player.addMoney(refundAmount);
+        room.returnHotel();
+        player.setTotalHotels(player.getTotalHotels() - 1);
+    }
+
+    @Override
     public void mortgageProperty(UUID roomId, UUID playerId, int position) {
         GameRoom room = getGameRoom(roomId);
         GamePlayer player = room.getPlayerById(playerId);
@@ -447,8 +504,8 @@ public class GameServiceImpl implements GameService {
                     payJailFine(roomId, playerId);
                     return true;
                 } else {
-                    // Bankruptcy
-                    handleBankruptcy(room, player, null);
+                    // Player can't afford jail fine - check networth
+                    handleInsufficientFunds(room, player, GameConstants.JAIL_FINE, null, "jail fine");
                 }
             }
             return false;
@@ -636,14 +693,14 @@ public class GameServiceImpl implements GameService {
                 break;
             case PAY_MONEY:
                 if (!player.subtractMoney(card.getValue())) {
-                    handleBankruptcy(room, player, null);
+                    handleInsufficientFunds(room, player, card.getValue(), null, "card payment");
                 }
                 break;
             case PAY_PER_HOUSE_HOTEL:
                 int cost = player.getTotalHouses() * card.getValue() +
                           player.getTotalHotels() * (card.getValue() * 4);
                 if (!player.subtractMoney(cost)) {
-                    handleBankruptcy(room, player, null);
+                    handleInsufficientFunds(room, player, cost, null, "property repairs");
                 }
                 break;
             case COLLECT_FROM_PLAYERS:
@@ -763,5 +820,109 @@ public class GameServiceImpl implements GameService {
         GameRoom room = getGameRoom(roomId);
         room.setGamePhase(GamePhase.FINISHED);
         // Game ends on disconnect as per requirements
+    }
+
+    @Override
+    public void payOffDebt(UUID roomId, UUID playerId, List<Integer> housesToSell,
+                           List<Integer> hotelsToSell, List<Integer> propertiesToMortgage,
+                           UUID creditorId, int amountOwed) {
+        GameRoom room = getGameRoom(roomId);
+        GamePlayer player = room.getPlayerById(playerId);
+
+        // Sell hotels first
+        if (hotelsToSell != null) {
+            for (Integer position : hotelsToSell) {
+                BoardSpace space = room.getBoardSpaces().get(position);
+                if (space instanceof PropertySpace) {
+                    PropertySpace prop = (PropertySpace) space;
+                    if (prop.getOwnerId().equals(playerId) && prop.isHasHotel()) {
+                        sellHotel(roomId, playerId, position);
+                    }
+                }
+            }
+        }
+
+        // Sell houses
+        if (housesToSell != null) {
+            for (Integer position : housesToSell) {
+                BoardSpace space = room.getBoardSpaces().get(position);
+                if (space instanceof PropertySpace) {
+                    PropertySpace prop = (PropertySpace) space;
+                    if (prop.getOwnerId().equals(playerId) && prop.getHousesBuilt() > 0) {
+                        sellHouse(roomId, playerId, position);
+                    }
+                }
+            }
+        }
+
+        // Mortgage properties (only if they have no houses/hotels)
+        if (propertiesToMortgage != null) {
+            for (Integer position : propertiesToMortgage) {
+                BoardSpace space = room.getBoardSpaces().get(position);
+
+                // Validate no houses/hotels before mortgaging
+                if (space instanceof PropertySpace) {
+                    PropertySpace prop = (PropertySpace) space;
+                    if (prop.getHousesBuilt() > 0 || prop.isHasHotel()) {
+                        throw new IllegalStateException("Cannot mortgage property with buildings");
+                    }
+                    if (prop.getOwnerId().equals(playerId) && prop.canMortgage()) {
+                        mortgageProperty(roomId, playerId, position);
+                    }
+                } else if (space instanceof RailroadSpace) {
+                    RailroadSpace rr = (RailroadSpace) space;
+                    if (rr.getOwnerId().equals(playerId) && rr.canMortgage()) {
+                        mortgageProperty(roomId, playerId, position);
+                    }
+                } else if (space instanceof UtilitySpace) {
+                    UtilitySpace util = (UtilitySpace) space;
+                    if (util.getOwnerId().equals(playerId) && util.canMortgage()) {
+                        mortgageProperty(roomId, playerId, position);
+                    }
+                }
+            }
+        }
+
+        // Check if enough money was raised
+        if (player.getMoney() < amountOwed) {
+            // Still can't pay after liquidation - declare bankruptcy
+            GamePlayer creditor = creditorId != null ? room.getPlayerById(creditorId) : null;
+            handleBankruptcy(room, player, creditor);
+            return;
+        }
+
+        // Pay the debt
+        if (!player.subtractMoney(amountOwed)) {
+            // This shouldn't happen, but handle it anyway
+            GamePlayer creditor = creditorId != null ? room.getPlayerById(creditorId) : null;
+            handleBankruptcy(room, player, creditor);
+            return;
+        }
+
+        // Transfer money to creditor or bank
+        if (creditorId != null) {
+            GamePlayer creditor = room.getPlayerById(creditorId);
+            creditor.addMoney(amountOwed);
+        }
+        // If creditor is null, money goes to bank (just removed from player)
+    }
+
+    /**
+     * Handles insufficient funds by checking networth and either triggering liquidation or bankruptcy
+     */
+    public void handleInsufficientFunds(GameRoom room, GamePlayer player, int amountOwed,
+                                        GamePlayer creditor, String reason) {
+        // Calculate player's total networth
+        int networth = player.calculateNetWorth(room.getBoardSpaces());
+
+        if (networth < amountOwed) {
+            // Player cannot afford even with liquidation - immediate bankruptcy
+            handleBankruptcy(room, player, creditor);
+        } else {
+            // Player can afford with liquidation - trigger liquidation phase
+            // This will be handled by the controller to send LIQUIDATION_REQUIRED event
+            room.setPendingDebt(player.getPlayerId(), amountOwed,
+                               creditor != null ? creditor.getPlayerId() : null, reason);
+        }
     }
 }

@@ -64,6 +64,12 @@ public class GameRoom {
     @Builder.Default
     private int totalHotelsRemaining = 12;
 
+    // Pending debt fields for liquidation phase
+    private UUID pendingDebtPlayerId;
+    private Integer pendingDebtAmount;
+    private UUID pendingDebtCreditorId;
+    private String pendingDebtReason;
+
     public GamePlayer getCurrentPlayer() {
         if (gamePlayers.isEmpty()) {
             return null;
@@ -151,5 +157,19 @@ public class GameRoom {
         if (totalHotelsRemaining < 12) {
             totalHotelsRemaining++;
         }
+    }
+
+    public void setPendingDebt(UUID playerId, int amount, UUID creditorId, String reason) {
+        this.pendingDebtPlayerId = playerId;
+        this.pendingDebtAmount = amount;
+        this.pendingDebtCreditorId = creditorId;
+        this.pendingDebtReason = reason;
+    }
+
+    public void clearPendingDebt() {
+        this.pendingDebtPlayerId = null;
+        this.pendingDebtAmount = null;
+        this.pendingDebtCreditorId = null;
+        this.pendingDebtReason = null;
     }
 }

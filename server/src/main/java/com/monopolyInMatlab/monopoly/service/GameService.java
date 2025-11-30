@@ -22,6 +22,8 @@ public interface GameService {
     // Building actions
     void buildHouse(UUID roomId, UUID playerId, int position);
     void buildHotel(UUID roomId, UUID playerId, int position);
+    void sellHouse(UUID roomId, UUID playerId, int position);
+    void sellHotel(UUID roomId, UUID playerId, int position);
 
     // Mortgage actions
     void mortgageProperty(UUID roomId, UUID playerId, int position);
@@ -43,6 +45,11 @@ public interface GameService {
 
     // Card handling
     Card drawCard(UUID roomId, UUID playerId, String deckType);
+
+    // Debt payment
+    void payOffDebt(UUID roomId, UUID playerId, java.util.List<Integer> housesToSell,
+                    java.util.List<Integer> hotelsToSell, java.util.List<Integer> propertiesToMortgage,
+                    UUID creditorId, int amountOwed);
 
     // Game state
     GameRoom getGameRoom(UUID roomId);
