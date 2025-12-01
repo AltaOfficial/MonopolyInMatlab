@@ -598,6 +598,7 @@ classdef Game < handle
                         obj.app.liquidation_panel.Visible = "on";
                         obj.app.Need0Label.Text = sprintf('Need: $%d', data.amountOwed);
                         obj.app.Need0Label.FontColor = "red";
+                        obj.app.debtValue = data.amountOwed;
 
                         % Store liquidation data for later use
                         obj.pendingDebtAmount = data.amountOwed;
@@ -645,6 +646,7 @@ classdef Game < handle
                     obj.appendToTextArea(sprintf('Debt of $%d paid successfully', data.amountPaid));
                     if obj.isMyTurn()
                         obj.app.liquidation_panel.Visible = "off";
+                        obj.app.sellValue = 0;
                         obj.app.sellValue = 0;
                     end
 
