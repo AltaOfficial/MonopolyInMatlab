@@ -226,12 +226,7 @@ classdef Game < handle
                             obj.app.propertiesLabel.Text = propertiesText;
                             obj.app.YourFunds100Label.Text = sprintf("Your Funds: $%d", newPlayer.money);
                         end
-                        fprintf("new player id: %s\n", newPlayer.playerId);
-                        disp(obj.gamePlayers);
                         oldPlayer = obj.getPlayerById(newPlayer.playerId);
-                        fprintf("----\n\n");
-                        disp(oldPlayer);
-                        fprintf("----\n\n");
                         if(~isempty(oldPlayer))
                             playerIndex = obj.getPlayerIndexById(newPlayer.playerId);
                             if(obj.isStarted == true)
@@ -602,6 +597,7 @@ classdef Game < handle
                         % Show liquidation UI
                         obj.app.liquidation_panel.Visible = "on";
                         obj.app.Need0Label.Text = sprintf('Need: $%d', data.amountOwed);
+                        obj.app.Need0Label.FontColor = "red";
 
                         % Store liquidation data for later use
                         obj.pendingDebtAmount = data.amountOwed;
@@ -613,67 +609,44 @@ classdef Game < handle
 
                         myProperties = obj.getMyProperties;
                         obj.app.SellMortgageTable.Data = {};
-                        propertiesFormatedList = {};
+                        numOfRows = 0;
 
                         for i = 1 : length(myProperties)
                             if(myProperties(i).spaceType == "RAILROAD" || myProperties(i).spaceType == "UTILITY" || (myProperties(i).housesBuilt == 0 && myProperties(i).hasHotel == false))
-                                obj.app.SellMortgageTable.Data = [obj.app.SellMortgageTable.Data, {false, myProperties(i).name}, ];
+                                obj.app.SellMortgageTable.Data = [obj.app.SellMortgageTable.Data; {false, myProperties(i).name, myProperties(i).mortgageValue, []}];
+                                numOfRows = numOfRows + 1;
                             elseif(myProperties(i).housesBuilt > 0)
-                                % display the 
+                                obj.app.SellMortgageTable.Data = [obj.app.SellMortgageTable.Data; {false, myProperties(i).name, myProperties(i).mortgageValue, []}];
+                                obj.app.disableRows([obj.app.DisabledRows, numOfRows + 1]);
+
+                                for h = 1 : myProperties(i).housesBuilt
+                                    obj.app.SellMortgageTable.Data = [obj.app.SellMortgageTable.Data; {false, sprintf("house %d on %s", h, myProperties(i).name), myProperties(i).mortgageValue, numOfRows + 1}]; % num at the end is the parent row num
+                                end
+                                numOfRows = numOfRows + 1 + myProperties(i).housesBuilt;
                             elseif(myProperties(i).hasHotel == true)
-                            else
+                                obj.app.SellMortgageTable.Data = [obj.app.SellMortgageTable.Data; {false, myProperties(i).name, myProperties(i).mortgageValue, []}];
+                                obj.app.disableRows([obj.app.DisabledRows, numOfRows + 1]);
+
+                                obj.app.SellMortgageTable.Data = [obj.app.SellMortgageTable.Data; {false, sprintf("hotel on %s", myProperties(i).name), myProperties(i).mortgageValue, numOfRows + 1}]; % num at the end is the parent row num
+                                numOfRows = numOfRows + 2;
                             end
                         end
-
-                        obj.app.SellMortgageTable.Data = {
-                            true, 'Mediterranean Avenue', '$60'; 
-                            false, 'Baltic Avenue', '$60'; 
-                            true, 'Oriental Avenue', '$100'; 
-                            false, 'Vermont Avenue', '$100';
-                            true, 'Connecticut Avenue', '$120';
-                            false, 'St. Charles Place', '$140';
-                            true, 'States Avenue', '$140';
-                            false, 'Virginia Avenue', '$160';
-                            true, 'St. James Place', '$180';
-                            false, 'Tennessee Avenue', '$180';
-                            true, 'New York Avenue', '$200';
-                            false, 'Kentucky Avenue', '$220';
-                            true, 'Indiana Avenue', '$220';
-                            false, 'Illinois Avenue', '$240';
-                            true, 'Atlantic Avenue', '$260';
-                            false, 'Ventnor Avenue', '$260';
-                            true, 'Marvin Gardens', '$280';
-                            false, 'Pacific Avenue', '$300';
-                            true, 'North Carolina Avenue', '$300';
-                            false, 'Pennsylvania Avenue', '$320';
-                            true, 'Park Place', '$350';
-                            false, 'Boardwalk', '$400';
-                            true, 'Reading Railroad', '$200';
-                            false, 'Pennsylvania Railroad', '$200';
-                            true, 'B&O Railroad', '$200';
-                            false, 'Short Line Railroad', '$200';
-                            true, 'Electric Company', '$150';
-                            false, 'Water Works', '$150';
-                      };
-                        % Populate liquidation list - will be implemented in UI section
                     end
 
                 case 'HOUSE_SOLD'
                     obj.appendToTextArea(sprintf('House sold at position %d for $%d', ...
                         data.position, data.refund));
-                    obj.updateFromServer();
 
                 case 'HOTEL_SOLD'
                     obj.appendToTextArea(sprintf('Hotel sold at position %d for $%d', ...
                         data.position, data.refund));
-                    obj.updateFromServer();
 
                 case 'DEBT_PAID'
                     obj.appendToTextArea(sprintf('Debt of $%d paid successfully', data.amountPaid));
                     if obj.isMyTurn()
                         obj.app.liquidation_panel.Visible = "off";
+                        obj.app.sellValue = 0;
                     end
-                    obj.updateFromServer();
 
                 case 'TURN_CHANGED'
                     obj.currentPlayerTurnId = data.currentPlayerId;
@@ -1004,6 +977,12 @@ classdef Game < handle
             else
                 prop = [];
             end
+        end
+
+        function prop = getPropertyByName(obj, propertyName)
+            myProperties = obj.getMyProperties();
+            idx = [myProperties.name] == propertyName;
+            prop = myProperties(idx);
         end
 
         function appendToTextArea(obj, text)
