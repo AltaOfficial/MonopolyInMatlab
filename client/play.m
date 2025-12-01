@@ -6,14 +6,19 @@ import SaveWebsocketsLibrary.*; % function to install websocket library
 clc;
 clear;
 SaveWebsocketsLibrary();
+dev_mode = false; % change this if not developing
 
 % Clear any previous websocket connections
 StompClient.getInstance([]);
 
 % Connect to the websocket server
-StompClient.getInstance("ws://localhost:8000/ws");
+if(dev_mode == true)
+    StompClient.getInstance("ws://localhost:8000/ws");
+else
+    StompClient.getInstance("wss://monopolyinmatlabserver-production.up.railway.app/ws");
+end
 
-main_menu();
+main_menu(dev_mode);
 
 % HELPFUL LINKS
 

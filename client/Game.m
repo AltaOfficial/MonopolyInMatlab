@@ -32,6 +32,7 @@ classdef Game < handle
         currentPlayerTurnId     % UUID of player whose turn it is (derived from currentPlayerIndex)
         stompClient             % Reference to StompClient singleton
         app                     % Reference to the App Designer app
+        dev_mode = false
 
         % Liquidation/debt payment properties
         pendingDebtAmount       % Amount player owes
@@ -48,7 +49,7 @@ classdef Game < handle
     end
 
     methods (Static)
-        function obj = gameInstance(app, roomId, userIsHost, myPlayerId)
+        function obj = gameInstance(app, roomId, userIsHost, myPlayerId, dev_mode)
             import webRequest.*;
             % Get singleton instance
             % Usage:
@@ -61,20 +62,24 @@ classdef Game < handle
                 % New instance requested with app parameter and roomId
                 if isempty(game)
                     % Getting the room details from the server
-                    
 
-                    response = webRequest(sprintf("http://localhost:8000/menu/room/%s", roomId));
+                    if(dev_mode == true)
+                        response = webRequest(sprintf("http://localhost:8000/menu/room/%s", roomId));
+                    else
+                        response = webRequest(sprintf("https://monopolyinmatlabserver-production.up.railway.app/menu/room/%s", roomId));
+                    end
                     if ~isempty(response.Body.Data)
                         roomDetails = response.Body.Data;
                     else
                         error("failed to get room details from server");
                     end
 
-                    game = Game(app, roomDetails, userIsHost, myPlayerId);
+                    game = Game(app, roomDetails, userIsHost, myPlayerId, dev_mode);
                 else
                     % Instance already exists, update app reference and roomId
                     game.app = app;
                     game.roomId = roomId;
+                    game.dev_mode = dev_mode;
                     game.weAreHost = userIsHost;
                     if nargin > 3
                         game.myPlayerId = myPlayerId;
@@ -82,7 +87,11 @@ classdef Game < handle
 
                     % Fetch updated room details if roomId changed
 
-                    response = webRequest(sprintf("http://localhost:8000/menu/room/%s", roomId));
+                    if(dev_mode == true)
+                        response = webRequest(sprintf("http://localhost:8000/menu/room/%s", roomId));
+                    else
+                        response = webRequest(sprintf("https://monopolyinmatlabserver-production.up.railway.app/menu/room/%s", roomId));
+                    end
                     if ~isempty(response.Body.Data)
                         game.updateFromServerData(response.Body.Data);
                     else
@@ -98,13 +107,15 @@ classdef Game < handle
     end
 
     methods (Access = private)
-        function obj = Game(app, roomDetails, userIsHost, myPlayerId)
+        function obj = Game(app, roomDetails, userIsHost, myPlayerId, dev_mode)
             % Private constructor - use gameInstance(app, roomDetails, userIsHost, myPlayerId) instead
             if nargin > 0
                 obj.app = app;
             else
                 obj.app = [];
             end
+
+            obj.dev_mode = dev_mode;
 
             % Initialize from roomDetails if provided
             if nargin > 1 && ~isempty(roomDetails)
@@ -159,7 +170,11 @@ classdef Game < handle
             % Update Game state from server GameRoom data
 
             if(nargin < 1)
-                gameRoomData = webRequest(sprintf("http://localhost:8000/menu/room/%s", obj.roomId)).Body.Data;
+                if(obj.dev_mode == true)
+                    gameRoomData = webRequest(sprintf("http://localhost:8000/menu/room/%s", obj.roomId)).Body.Data;
+                else
+                    gameRoomData = webRequest(sprintf("https://monopolyinmatlabserver-production.up.railway.app/menu/room/%s", obj.roomId)).Body.Data;
+                end
             end
 
             if isfield(gameRoomData, 'roomId')
@@ -390,7 +405,11 @@ classdef Game < handle
 
             % Fetch and update game state from server
             
-            response = webRequest(sprintf("http://localhost:8000/menu/room/%s", obj.roomId));
+            if(obj.dev_mode == true)
+                response = webRequest(sprintf("http://localhost:8000/menu/room/%s", obj.roomId));
+            else
+                response = webRequest(sprintf("https://monopolyinmatlabserver-production.up.railway.app/menu/room/%s", obj.roomId));
+            end
             if ~isempty(response.Body.Data)
                 obj.updateFromServerData(response.Body.Data);
             end
@@ -446,8 +465,7 @@ classdef Game < handle
                         propertyAtPlayerPosition = obj.getPropertyAtPosition(player.position);
                         if(obj.canBuyProperty() && (propertyAtPlayerPosition.type == "PROPERTY" || propertyAtPlayerPosition.type == "RAILROAD" || propertyAtPlayerPosition.type == "UTILITY"))
                             obj.app.BuyPropertyHereButton.Enable = "on";
-                        end
-                        if(propertyAtPlayerPosition.type == "CHANCE" || propertyAtPlayerPosition.type == "COMMUNITY_CHEST")
+                        elseif(propertyAtPlayerPosition.spaceType == "CHANCE" || propertyAtPlayerPosition.spaceType == "COMMUNITY_CHEST")
                             obj.app.EndTurnButton.Text = "Draw Card";
                         end
 
@@ -596,6 +614,7 @@ classdef Game < handle
                     if obj.isMyTurn()
                         % Show liquidation UI
                         obj.app.liquidation_panel.Visible = "on";
+                        obj.app.EndTurnButton.Enable = "off";
                         obj.app.Need0Label.Text = sprintf('Need: $%d', data.amountOwed);
                         obj.app.Need0Label.FontColor = "red";
                         obj.app.debtValue = data.amountOwed;
