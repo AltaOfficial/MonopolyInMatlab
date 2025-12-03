@@ -1,4 +1,6 @@
-# ⚠️ You cannot run this in MATLAB Online
+# Monopoly in MATLAB — How to Run
+
+> **⚠️ Note:** You cannot run this in MATLAB Online.
 
 To play the game, **you do not need to download the server files**, as long as  
 `monopolyinmatlabserver-production.up.railway.app` is accessible and not returning a `404`.
@@ -32,4 +34,4 @@ Inside `play.m` there is a setting called `dev_mode`.
 ---
 
 ## Performance Note
-If you're running on a VM or a slow PC, the game may take longer to load — please be patient.
+If you’re using a VM or a slow PC, loading may take longer — please be patient.
