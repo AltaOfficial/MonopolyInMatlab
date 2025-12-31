@@ -1,3 +1,5 @@
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/5b39d426-1608-4247-a558-afd841b5f737" />
+
 # Monopoly in MATLAB — How to Run
 
 > **⚠️ Note:** You cannot run this in MATLAB Online.
